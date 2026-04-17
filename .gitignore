@@ -1,6 +1,17 @@
-.DS_Store
-.idea/
-*.iml
 __pycache__/
-.ipynb_checkpoints/
-runs/
+*.pyc
+.DS_Store
+
+# training outputs
+mujoco/runs/
+simple_spread_baseline/runs/
+simple_spread_multiagent/runs/
+
+# model files
+*.zip
+*.pt
+*.pth
+*.ckpt
+
+# tensorboard
+events.out.tfevents.*

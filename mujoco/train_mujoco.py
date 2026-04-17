@@ -9,12 +9,17 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
 
 def make_env(env_id: str, seed: int):
+    """Create one monitored environment instance with a fixed seed."""
+
     def _init():
         env = gym.make(env_id)
+        # Monitor records episode returns/lengths so SB3 can log them cleanly.
         env = Monitor(env)
+        # Seed both reset() and the action space for more repeatable runs.
         env.reset(seed=seed)
         env.action_space.seed(seed)
         return env
+
     return _init
 
 
@@ -27,12 +32,16 @@ def main():
     parser.add_argument("--n_eval_episodes", type=int, default=10)
     args = parser.parse_args()
 
+    # Each seed gets its own directory so models, eval logs, and TensorBoard
+    # files stay grouped together under runs/<env>_seed<seed>/.
     run_dir = Path("runs") / f"{args.env_id}_seed{args.seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     train_env = DummyVecEnv([make_env(args.env_id, args.seed)])
     train_env = VecMonitor(train_env)
 
+    # Use a different seed for evaluation to avoid measuring on the exact same
+    # episode seeds seen during training rollouts.
     eval_env = DummyVecEnv([make_env(args.env_id, args.seed + 1000)])
     eval_env = VecMonitor(eval_env)
 
@@ -54,6 +63,8 @@ def main():
         tensorboard_log=str(run_dir / "tb"),
     )
 
+    # EvalCallback periodically evaluates the current policy, writes
+    # evaluations.npz, and saves the best checkpoint seen so far.
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path=str(run_dir / "best_model"),
@@ -64,6 +75,7 @@ def main():
         render=False,
     )
 
+    # final_model.zip is the last checkpoint after all requested timesteps.
     model.learn(total_timesteps=args.timesteps, callback=eval_callback)
     model.save(str(run_dir / "final_model"))
 

@@ -4,3 +4,5 @@ tensorboard
 pandas
 matplotlib
 numpy
+supersuit
+mpe2

@@ -65,6 +65,11 @@ class SB3VectorEnvAdapter(VecEnv):
         for idx, info in enumerate(new_infos):
             info = dict(info)
             info["TimeLimit.truncated"] = bool(truncations[idx] and not terminations[idx])
+            if terminations[idx] or truncations[idx]:
+                info["terminal_observation"] = info.get(
+                    "terminal_observation",
+                    info.get("final_observation", observations[idx]),
+                )
             new_infos[idx] = info
         dones = np.logical_or(terminations, truncations)
         return observations, rewards, dones, new_infos

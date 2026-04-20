@@ -7,6 +7,9 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
+BASE_DIR = Path(__file__).resolve().parent
+RUNS_DIR = BASE_DIR / "runs"
+
 
 def make_env(env_id: str, seed: int):
     """Create one monitored environment instance with a fixed seed."""
@@ -33,8 +36,9 @@ def main():
     args = parser.parse_args()
 
     # Each seed gets its own directory so models, eval logs, and TensorBoard
-    # files stay grouped together under runs/<env>_seed<seed>/.
-    run_dir = Path("runs") / f"{args.env_id}_seed{args.seed}"
+    # files stay grouped together under mujoco/runs/<env>_seed<seed>/,
+    # independent of where the command is launched from.
+    run_dir = RUNS_DIR / f"{args.env_id}_seed{args.seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     train_env = DummyVecEnv([make_env(args.env_id, args.seed)])

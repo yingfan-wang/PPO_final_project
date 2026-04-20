@@ -28,6 +28,7 @@ rl_final_project/
 |- simple_spread_multiagent/
 |  `- runs/
 |- results/
+|- requirements.txt
 |- requirments.txt
 `- README.md
 ```
@@ -39,12 +40,13 @@ Create and activate a Python environment, then install dependencies:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirments.txt
+pip install -r requirements.txt
 ```
 
 Notes:
 
-- The dependency file is currently named `requirments.txt`, not `requirements.txt`.
+- `requirments.txt` is kept only as a backward-compatible shim for the old
+  misspelled filename.
 - `gymnasium[mujoco]` may need MuJoCo system dependencies depending on your machine.
 - The Simple Spread scripts use `mpe2`, `supersuit`, and `stable-baselines3`.
 
@@ -70,7 +72,7 @@ python3 mujoco/train_mujoco.py --env_id HalfCheetah-v5 --seed 1 --timesteps 1000
 Outputs are written to:
 
 ```text
-runs/<env_id>_seed<seed>/
+mujoco/runs/<env_id>_seed<seed>/
 ```
 
 Important files:
@@ -83,7 +85,7 @@ Important files:
 ### Evaluate
 
 ```bash
-python3 mujoco/eval_mujoco.py --model_path runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 20
+python3 mujoco/eval_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 20
 ```
 
 ### Plot
@@ -98,10 +100,16 @@ Default output:
 results/HalfCheetah-v5_3seed_curve.png
 ```
 
+Useful plot arguments:
+
+- `--runs_dir`: directory containing `<env_id>_seed<seed>/eval_logs/evaluations.npz`
+- `--no_show`: save the figure without opening a window
+- `--output_path`: custom path for the saved figure
+
 ### Watch
 
 ```bash
-python3 mujoco/watch_mujoco.py --model_path runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 3
+python3 mujoco/watch_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 3
 ```
 
 ## Simple Spread Baseline Track
@@ -137,8 +145,9 @@ Spread with 3 agents:
 - one joint environment step contributes 3 SB3 timesteps per parallel env copy
 - rollout size is `n_steps * num_vec_envs * 3`
 
-The vector wrapper also preserves `TimeLimit.truncated` information so PPO can
-bootstrap correctly at max-cycle cutoffs.
+The vector wrapper also preserves `TimeLimit.truncated` and
+`terminal_observation` information so PPO can bootstrap correctly at max-cycle
+cutoffs.
 
 ### Train the Baseline
 
@@ -170,17 +179,21 @@ simple_spread_baseline/runs/simple_spread_baseline_seed<seed>/
 Important files:
 
 - `final_model.zip`: final checkpoint after training
-- `best_model/best_model.zip`: best checkpoint by evaluation team return
+- `best_model/best_model.zip`: best checkpoint by evaluation mean per-agent return
 - `eval_logs/evaluations.npz`: evaluation history
 - `tb/`: TensorBoard logs
 - `run_config.json`: saved training configuration and timestep semantics
+
+The evaluation file contains mean per-agent episode returns. This keeps the
+scale comparable as an average agent outcome rather than multiplying every
+return by the fixed number of agents.
 
 The evaluation file contains:
 
 - `timesteps`: raw SB3 agent-slot timesteps
 - `parallel_env_steps`: timesteps divided by the number of agents
 - `per_env_steps`: timesteps divided by total agent slots
-- `results`: team returns for each eval batch
+- `results`: mean per-agent returns for each eval batch
 - `ep_lengths`: episode lengths for each eval batch
 
 ### Evaluate a Saved Baseline Checkpoint
@@ -263,8 +276,8 @@ Recommended conventions:
 
 - keep implementation-specific checkpoints under `simple_spread_multiagent/runs/`
 - keep aggregate figures under `results/`
-- report the same evaluation metrics as the baseline when possible: team return,
-  episode length, timestep semantics, and seed-level curves
+- report the same evaluation metrics as the baseline when possible: mean
+  per-agent return, episode length, timestep semantics, and seed-level curves
 - compare against `simple_spread_baseline/` with the same seeds, `max_cycles`,
   and evaluation episode counts
 

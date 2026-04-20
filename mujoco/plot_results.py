@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent
+DEFAULT_RUNS_DIR = SCRIPT_DIR / "runs"
+DEFAULT_RESULTS_DIR = ROOT_DIR / "results"
+
 
 def load_evals(npz_path: Path):
     """Load SB3 evaluation logs and convert them into one mean-return curve."""
@@ -20,15 +25,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="HalfCheetah-v5")
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    parser.add_argument("--runs_dir", type=str, default=str(DEFAULT_RUNS_DIR))
+    parser.add_argument("--output_path", type=str, default=None)
+    parser.add_argument("--no_show", action="store_true")
     args = parser.parse_args()
 
-    results_dir = Path("results")
+    runs_dir = Path(args.runs_dir).expanduser()
+    results_dir = DEFAULT_RESULTS_DIR
     results_dir.mkdir(parents=True, exist_ok=True)
 
     curves = []
     for seed in args.seeds:
         # EvalCallback saves one evaluations.npz per training run.
-        npz_path = Path("runs") / f"{args.env_id}_seed{seed}" / "eval_logs" / "evaluations.npz"
+        npz_path = runs_dir / f"{args.env_id}_seed{seed}" / "eval_logs" / "evaluations.npz"
         if not npz_path.exists():
             raise FileNotFoundError(f"Missing file: {npz_path}")
         df = load_evals(npz_path)
@@ -63,10 +72,15 @@ def main():
     plt.legend()
     plt.tight_layout()
 
-    # The current file name matches the default three-seed experiment.
-    save_path = results_dir / f"{args.env_id}_3seed_curve.png"
+    if args.output_path is None:
+        save_path = results_dir / f"{args.env_id}_3seed_curve.png"
+    else:
+        save_path = Path(args.output_path).expanduser()
+    save_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(save_path, dpi=200)
-    plt.show()
+    if not args.no_show:
+        plt.show()
+    plt.close()
 
     print(f"Saved figure to: {save_path}")
     print("\nFinal evaluation summary:")

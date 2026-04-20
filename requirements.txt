@@ -1,0 +1,10 @@
+# Core versions match the saved SB3 checkpoint metadata in this repository.
+gymnasium[mujoco]==1.2.3
+stable-baselines3==2.8.0
+numpy==2.2.6
+
+tensorboard
+pandas
+matplotlib
+supersuit
+mpe2

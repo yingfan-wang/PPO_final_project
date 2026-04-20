@@ -29,7 +29,6 @@ rl_final_project/
 |  `- runs/
 |- results/
 |- requirements.txt
-|- requirments.txt
 `- README.md
 ```
 
@@ -45,8 +44,6 @@ pip install -r requirements.txt
 
 Notes:
 
-- `requirments.txt` is kept only as a backward-compatible shim for the old
-  misspelled filename.
 - `gymnasium[mujoco]` may need MuJoCo system dependencies depending on your machine.
 - The Simple Spread scripts use `mpe2`, `supersuit`, and `stable-baselines3`.
 

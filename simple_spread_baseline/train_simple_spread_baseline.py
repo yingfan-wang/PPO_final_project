@@ -105,7 +105,7 @@ class SimpleSpreadEvalCallback(BaseCallback):
         self.ep_lengths.append(episode_lengths.tolist())
         self._save_eval_logs()
 
-        self.logger.record("eval/mean_team_return", mean_return)
+        self.logger.record("eval/mean_per_agent_return", mean_return)
         self.logger.record("eval/mean_episode_length", float(episode_lengths.mean()))
 
         if mean_return > self.best_mean_return:
@@ -113,12 +113,12 @@ class SimpleSpreadEvalCallback(BaseCallback):
             self.model.save(str(self.run_dir / "best_model" / "best_model"))
             if self.verbose >= 1:
                 print(
-                    f"New best team return: {mean_return:.3f} "
+                    f"New best mean per-agent return: {mean_return:.3f} "
                     f"at timestep {self.num_timesteps}"
                 )
         elif self.verbose >= 1:
             print(
-                f"Eval team return: {mean_return:.3f} "
+                f"Eval mean per-agent return: {mean_return:.3f} "
                 f"at timestep {self.num_timesteps}"
             )
 

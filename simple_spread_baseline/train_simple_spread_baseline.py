@@ -136,7 +136,7 @@ class SimpleSpreadEvalCallback(BaseCallback):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--timesteps", type=int, default=1_000_000)
+    parser.add_argument("--timesteps", type=int, default=3_000_000)
     parser.add_argument("--eval_freq", type=int, default=20_000)
     parser.add_argument(
         "--n_eval_episodes",

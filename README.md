@@ -26,6 +26,11 @@ rl_final_project/
 |  |- plot_simple_spread_baseline.py
 |  `- simple_spread_baseline_common.py
 |- simple_spread_multiagent/
+|  |- train_simple_spread_multiagent.py
+|  |- eval_simple_spread_multiagent.py
+|  |- watch_simple_spread_multiagent.py
+|  |- plot_simple_spread_multiagent.py
+|  |- simple_spread_multiagent_common.py
 |  `- runs/
 |- results/
 |- requirements.txt
@@ -34,12 +39,25 @@ rl_final_project/
 
 ## Setup
 
+Use Python 3.11 or 3.12 for this project. Python 3.14 may force source builds
+for MuJoCo, pygame, and other RL dependencies, which can fail with low-level
+system-library errors instead of installing normal wheels.
+
 Create and activate a Python environment, then install dependencies:
 
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+If you only need the Simple Spread baseline and MAPPO extension, you can skip
+the MuJoCo extra:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-simple-spread.txt
 ```
 
 Notes:
@@ -164,7 +182,7 @@ python3 train_simple_spread_baseline.py --seed 0
 Example with explicit rollout settings:
 
 ```bash
-python3 simple_spread_baseline/train_simple_spread_baseline.py --seed 0 --timesteps 1000000 --eval_freq 20000 --n_eval_episodes 12 --num_vec_envs 4 --n_steps 512 --batch_size 256
+python3 simple_spread_baseline/train_simple_spread_baseline.py --seed 0 --timesteps 3000000 --eval_freq 20000 --n_eval_episodes 12 --num_vec_envs 4 --n_steps 512 --batch_size 256
 ```
 
 Outputs are written to:
@@ -264,23 +282,105 @@ Useful watch arguments:
 
 ## Simple Spread Multi-Agent Track
 
-The `simple_spread_multiagent/` directory is for the stronger Simple Spread
-implementation that should be compared against the baseline above.
+The `simple_spread_multiagent/` directory contains the stronger Simple Spread
+adaptation. It is a compact MAPPO-style extension of PPO:
 
-Use this track for the project's main multi-agent adaptation, while keeping the
-baseline track unchanged as the shared-policy local-observation comparison.
-Recommended conventions:
+- one shared actor is used by all three agents
+- the actor executes from each agent's local observation, plus a one-hot agent
+  ID by default
+- the critic is centralized and receives the ordered concatenation of all
+  agents' observations, plus the same agent ID
+- training uses a shared team reward by default, so each agent optimizes the
+  mean per-agent team outcome before per-agent advantage estimation
+- the value baseline is conditioned on joint state information for better
+  credit assignment
 
-- keep implementation-specific checkpoints under `simple_spread_multiagent/runs/`
-- keep aggregate figures under `results/`
-- report the same evaluation metrics as the baseline when possible: mean
-  per-agent return, episode length, timestep semantics, and seed-level curves
-- compare against `simple_spread_baseline/` with the same seeds, `max_cycles`,
-  and evaluation episode counts
+This keeps execution decentralized while giving the value function enough
+information to reason about coordination and landmark coverage.
 
-This checkout currently contains the multi-agent output directory but no
-multi-agent train/eval/watch/plot scripts, so this README does not list commands
-for that track yet.
+### Train the Multi-Agent Extension
+
+From the repo root:
+
+```bash
+python3 simple_spread_multiagent/train_simple_spread_multiagent.py --seed 0
+```
+
+Example matching the baseline rollout scale:
+
+```bash
+python3 simple_spread_multiagent/train_simple_spread_multiagent.py --seed 0 --timesteps 3000000 --eval_freq 20000 --n_eval_episodes 12 --num_vec_envs 4 --n_steps 512 --batch_size 256
+```
+
+The MAPPO trainer prints an SB3-style table each update by default. For quieter
+long runs, increase `--log_interval`, for example `--log_interval 10`.
+
+By default, MAPPO uses `--reward_mode team`, which gives every agent the same
+mean team reward during training. To run the earlier individual-reward ablation,
+use `--reward_mode individual`.
+
+Outputs are written to:
+
+```text
+simple_spread_multiagent/runs/simple_spread_mappo_seed<seed>/
+```
+
+Important files:
+
+- `final_model.pt`: final checkpoint after training
+- `best_model/best_model.pt`: best checkpoint by evaluation mean per-agent return
+- `eval_logs/evaluations.npz`: evaluation history
+- `run_config.json`: saved method, hyperparameters, and timestep semantics
+
+The evaluation log uses the same fields as the baseline:
+
+- `timesteps`: raw agent-slot timesteps
+- `parallel_env_steps`: timesteps divided by the number of agents
+- `per_env_steps`: timesteps divided by total agent slots
+- `results`: mean per-agent returns for each eval batch
+- `ep_lengths`: episode lengths for each eval batch
+
+### Evaluate a Saved Multi-Agent Checkpoint
+
+```bash
+python3 simple_spread_multiagent/eval_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 20
+```
+
+### Plot Multiple Seeds
+
+```bash
+python3 simple_spread_multiagent/plot_simple_spread_multiagent.py --seeds 0 1 2
+```
+
+To overlay the straightforward PPO baseline:
+
+```bash
+python3 simple_spread_multiagent/plot_simple_spread_multiagent.py --seeds 0 1 2 --compare_baseline
+```
+
+Default output:
+
+```text
+results/simple_spread_mappo_3seed_curve.png
+```
+
+Comparison output:
+
+```text
+results/simple_spread_mappo_vs_baseline_3seed_curve.png
+```
+
+### Watch a Trained Multi-Agent Checkpoint
+
+```bash
+python3 simple_spread_multiagent/watch_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 3 --fps 30
+```
+
+For frame dumps:
+
+```bash
+python3 simple_spread_multiagent/watch_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 1 --render_mode rgb_array --frame_dir /tmp/simple_spread_mappo_watch_seed0
+```
 
 ## Suggested Reproduction Flow
 

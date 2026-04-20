@@ -1,13 +1,14 @@
 # PPO Final Project
 
-This repository contains two PPO experiment tracks:
+This repository contains three PPO experiment tracks:
 
 - a standard single-agent PPO workflow for Gymnasium MuJoCo tasks
 - a Simple Spread baseline that adapts PPO to the multi-agent MPE2 setting
+- a Simple Spread multi-agent implementation track for the stronger adaptation
 
 The current Simple Spread baseline is intentionally straightforward so it can be
-used as the "unmodified PPO" comparison point before moving to a more
-principled multi-agent PPO variant.
+used as the "unmodified PPO" comparison point for the more principled
+multi-agent PPO variant.
 
 ## Repo Layout
 
@@ -24,7 +25,8 @@ rl_final_project/
 |  |- watch_simple_spread_baseline.py
 |  |- plot_simple_spread_baseline.py
 |  `- simple_spread_baseline_common.py
-|- simple_spread_multiagent/   # placeholder for the stronger adaptation track
+|- simple_spread_multiagent/
+|  `- runs/
 |- results/
 |- requirments.txt
 `- README.md
@@ -250,6 +252,26 @@ Useful watch arguments:
 - `--render_mode human` or `--render_mode rgb_array`
 - `--frame_dir`: directory for saved PNG frames when using `rgb_array`
 
+## Simple Spread Multi-Agent Track
+
+The `simple_spread_multiagent/` directory is for the stronger Simple Spread
+implementation that should be compared against the baseline above.
+
+Use this track for the project's main multi-agent adaptation, while keeping the
+baseline track unchanged as the shared-policy local-observation comparison.
+Recommended conventions:
+
+- keep implementation-specific checkpoints under `simple_spread_multiagent/runs/`
+- keep aggregate figures under `results/`
+- report the same evaluation metrics as the baseline when possible: team return,
+  episode length, timestep semantics, and seed-level curves
+- compare against `simple_spread_baseline/` with the same seeds, `max_cycles`,
+  and evaluation episode counts
+
+This checkout currently contains the multi-agent output directory but no
+multi-agent train/eval/watch/plot scripts, so this README does not list commands
+for that track yet.
+
 ## Suggested Reproduction Flow
 
 For the project deliverables, a reasonable workflow is:
@@ -258,7 +280,8 @@ For the project deliverables, a reasonable workflow is:
 2. Train 3 Simple Spread baseline seeds with the shared-policy local-observation setup.
 3. Evaluate and plot the Simple Spread baseline.
 4. Watch the best checkpoint from each seed to qualitatively inspect coordination failures.
-5. Implement the stronger multi-agent PPO adaptation in `simple_spread_multiagent/` and compare against the baseline.
+5. Run the stronger multi-agent Simple Spread implementation in `simple_spread_multiagent/`.
+6. Compare the multi-agent results against the baseline using matched seeds and evaluation settings.
 
 ## Notes
 

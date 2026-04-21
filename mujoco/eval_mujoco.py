@@ -14,10 +14,13 @@ def main():
     parser.add_argument("--seed", type=int, default=12345)
     args = parser.parse_args()
 
+    # Load the saved SB3 PPO checkpoint from train_mujoco.py.
     model = PPO.load(args.model_path)
 
     returns = []
     for ep in range(args.episodes):
+        # Create a fresh environment each episode and vary the seed so the
+        # summary reflects performance across multiple rollouts.
         env = gym.make(args.env_id)
         env = Monitor(env)
         obs, info = env.reset(seed=args.seed + ep)
@@ -26,6 +29,7 @@ def main():
         ep_return = 0.0
 
         while not done:
+            # Deterministic actions make evaluation repeatable for a fixed seed.
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
             ep_return += reward
@@ -36,6 +40,7 @@ def main():
 
     returns = np.array(returns, dtype=np.float64)
 
+    # Print a compact summary instead of writing another results file.
     print(f"Episodes: {args.episodes}")
     print(f"Mean return: {returns.mean():.2f}")
     print(f"Std return:  {returns.std(ddof=1):.2f}")

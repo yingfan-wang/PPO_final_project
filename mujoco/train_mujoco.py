@@ -7,42 +7,22 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
-
-import numpy as np
-
-class CustomHalfCheetahWrapper(gym.Wrapper):
-    def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
-        
-        forward_vel = info.get("x_velocity", 0.0)
-        ctrl_cost   = info.get("reward_ctrl", 0.0)  
-
-        torso_angle = obs[2]
-        
-        upside_down_penalty = 0.0
-
-        if abs(torso_angle) > 1.0:
-            upside_down_penalty = -2.0
-        else:
-            upside_down_penalty = 0.0
-        
-        custom_reward = (
-            forward_vel
-          + ctrl_cost
-          + upside_down_penalty
-        )
-        
-        return obs, custom_reward, terminated, truncated, info
+BASE_DIR = Path(__file__).resolve().parent
+RUNS_DIR = BASE_DIR / "runs"
 
 
 def make_env(env_id: str, seed: int):
+    """Create one monitored environment instance with a fixed seed."""
+
     def _init():
         env = gym.make(env_id)
-        env = CustomHalfCheetahWrapper(env)  
+        # Monitor records episode returns/lengths so SB3 can log them cleanly.
         env = Monitor(env)
+        # Seed both reset() and the action space for more repeatable runs.
         env.reset(seed=seed)
         env.action_space.seed(seed)
         return env
+
     return _init
 
 
@@ -50,17 +30,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="HalfCheetah-v5")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--timesteps", type=int, default=300_000)
+    parser.add_argument("--timesteps", type=int, default=1_000_000)
     parser.add_argument("--eval_freq", type=int, default=10_000)
     parser.add_argument("--n_eval_episodes", type=int, default=10)
     args = parser.parse_args()
 
-    run_dir = Path("runs") / f"{args.env_id}_seed{args.seed}"
+    # Each seed gets its own directory so models, eval logs, and TensorBoard
+    # files stay grouped together under mujoco/runs/<env>_seed<seed>/,
+    # independent of where the command is launched from.
+    run_dir = RUNS_DIR / f"{args.env_id}_seed{args.seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     train_env = DummyVecEnv([make_env(args.env_id, args.seed)])
     train_env = VecMonitor(train_env)
 
+    # Use a different seed for evaluation to avoid measuring on the exact same
+    # episode seeds seen during training rollouts.
     eval_env = DummyVecEnv([make_env(args.env_id, args.seed + 1000)])
     eval_env = VecMonitor(eval_env)
 
@@ -82,6 +67,8 @@ def main():
         tensorboard_log=str(run_dir / "tb"),
     )
 
+    # EvalCallback periodically evaluates the current policy, writes
+    # evaluations.npz, and saves the best checkpoint seen so far.
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path=str(run_dir / "best_model"),
@@ -92,6 +79,7 @@ def main():
         render=False,
     )
 
+    # final_model.zip is the last checkpoint after all requested timesteps.
     model.learn(total_timesteps=args.timesteps, callback=eval_callback)
     model.save(str(run_dir / "final_model"))
 
@@ -101,5 +89,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    

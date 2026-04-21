@@ -1,4 +1,4 @@
-"""Plot Simple Spread MAPPO evaluation curves, optionally against baseline."""
+"""Plot Simple Spread SB3 adaptation curves, optionally against baseline."""
 
 import argparse
 import os
@@ -17,6 +17,7 @@ from simple_spread_multiagent_common import BASE_DIR
 
 ROOT_DIR = BASE_DIR.parent
 BASELINE_DIR = ROOT_DIR / "simple_spread_baseline"
+RUN_PREFIX = "simple_spread_sb3_adaptation"
 
 
 def load_npz_evals(npz_path: Path, x_axis: str, metric: str):
@@ -112,9 +113,9 @@ def main():
     parser.add_argument("--output_path", type=str, default=None)
     args = parser.parse_args()
 
-    mappo_pivot = build_pivot(
+    adaptation_pivot = build_pivot(
         root_dir=BASE_DIR,
-        run_prefix="simple_spread_mappo",
+        run_prefix=RUN_PREFIX,
         seeds=args.seeds,
         x_axis=args.x_axis,
         metric=args.metric,
@@ -133,7 +134,7 @@ def main():
     results_dir.mkdir(parents=True, exist_ok=True)
 
     plt.figure(figsize=(8, 5))
-    plot_pivot(mappo_pivot, "MAPPO", args.seeds, alpha=0.45)
+    plot_pivot(adaptation_pivot, "SB3 adaptation", args.seeds, alpha=0.45)
     if baseline_pivot is not None:
         plot_pivot(baseline_pivot, "baseline", args.seeds, alpha=0.25)
 
@@ -146,9 +147,9 @@ def main():
         "mean_return": "Evaluation Return",
         "mean_episode_length": "Evaluation Episode Length",
     }
-    title = "MAPPO on Simple Spread"
+    title = "Traced SB3 Adaptation on Simple Spread"
     if args.compare_baseline:
-        title = "MAPPO vs PPO Baseline on Simple Spread"
+        title = "Traced SB3 Adaptation vs Baseline on Simple Spread"
     if args.metric == "mean_episode_length":
         title += " (Episode Length)"
 
@@ -160,11 +161,11 @@ def main():
 
     if args.output_path is None:
         if args.compare_baseline:
-            save_name = "simple_spread_mappo_vs_baseline_3seed_curve.png"
+            save_name = "simple_spread_sb3_adaptation_vs_baseline_3seed_curve.png"
         elif args.metric == "mean_return" and args.x_axis == "timesteps":
-            save_name = "simple_spread_mappo_3seed_curve.png"
+            save_name = "simple_spread_sb3_adaptation_3seed_curve.png"
         else:
-            save_name = f"simple_spread_mappo_{args.metric}_{args.x_axis}.png"
+            save_name = f"simple_spread_sb3_adaptation_{args.metric}_{args.x_axis}.png"
         save_path = results_dir / save_name
     else:
         save_path = Path(args.output_path).expanduser()
@@ -176,11 +177,11 @@ def main():
     plt.close()
 
     print(f"Saved figure to: {save_path}")
-    print("\nFinal MAPPO evaluation summary:")
-    final_row = mappo_pivot.iloc[-1]
+    print("\nFinal SB3 adaptation evaluation summary:")
+    final_row = adaptation_pivot.iloc[-1]
     print(final_row)
-    print(f"\nFinal MAPPO mean: {final_row.mean():.2f}")
-    print(f"Final MAPPO std:  {final_row.std(ddof=0):.2f}")
+    print(f"\nFinal SB3 adaptation mean: {final_row.mean():.2f}")
+    print(f"Final SB3 adaptation std:  {final_row.std(ddof=0):.2f}")
 
     if baseline_pivot is not None:
         baseline_final = baseline_pivot.iloc[-1]

@@ -1,31 +1,30 @@
-"""Evaluate a saved Simple Spread MAPPO checkpoint."""
+"""Evaluate a saved Simple Spread SB3 adaptation checkpoint."""
 
 import argparse
 
-import torch
+from stable_baselines3 import PPO
 
 from simple_spread_multiagent_common import (
     DEFAULT_MAX_CYCLES,
+    LOCAL_RATIO,
     evaluate_team_policy,
-    load_checkpoint,
+    resolve_model_path,
     safe_std,
 )
 
 
-def resolve_device(device: str) -> torch.device:
-    if device != "auto":
-        return torch.device(device)
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    return torch.device("cpu")
-
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint_path", "--model_path", dest="checkpoint_path", required=True)
+    parser.add_argument(
+        "--checkpoint_path",
+        "--model_path",
+        dest="checkpoint_path",
+        required=True,
+    )
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--max_cycles", type=int, default=DEFAULT_MAX_CYCLES)
+    parser.add_argument("--local_ratio", type=float, default=LOCAL_RATIO)
     parser.add_argument("--device", type=str, default="auto")
     parser.set_defaults(deterministic=True)
     parser.add_argument(
@@ -53,24 +52,23 @@ def main():
 
     if args.episodes <= 0:
         raise ValueError("--episodes must be positive.")
+    if not 0.0 <= args.local_ratio <= 1.0:
+        raise ValueError("--local_ratio must be in [0, 1].")
 
-    device = resolve_device(args.device)
-    model, metadata, _, resolved_checkpoint_path = load_checkpoint(
-        args.checkpoint_path,
-        device=device,
-    )
+    model_path = resolve_model_path(args.checkpoint_path)
+    model = PPO.load(model_path, device=args.device)
     returns, episode_lengths = evaluate_team_policy(
         model=model,
-        metadata=metadata,
         seed=args.seed,
         n_eval_episodes=args.episodes,
         max_cycles=args.max_cycles,
         terminate_on_success=args.terminate_on_success,
-        device=device,
+        local_ratio=args.local_ratio,
         deterministic=args.deterministic,
     )
 
-    print(f"Checkpoint: {resolved_checkpoint_path}")
+    print(f"Checkpoint: {model_path}")
+    print(f"Local ratio: {args.local_ratio}")
     print(f"Episodes: {args.episodes}")
     print(f"Mean return: {returns.mean():.2f}")
     print(f"Std return:  {safe_std(returns):.2f}")

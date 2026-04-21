@@ -8,9 +8,37 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
 
+import numpy as np
+
+class CustomHalfCheetahWrapper(gym.Wrapper):
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        
+        forward_vel = info.get("x_velocity", 0.0)
+        ctrl_cost   = info.get("reward_ctrl", 0.0)  
+
+        torso_angle = obs[2]
+        
+        upside_down_penalty = 0.0
+
+        if abs(torso_angle) > 1.0:
+            upside_down_penalty = -2.0
+        else:
+            upside_down_penalty = 0.0
+        
+        custom_reward = (
+            forward_vel
+          + ctrl_cost
+          + upside_down_penalty
+        )
+        
+        return obs, custom_reward, terminated, truncated, info
+
+
 def make_env(env_id: str, seed: int):
     def _init():
         env = gym.make(env_id)
+        env = CustomHalfCheetahWrapper(env)  
         env = Monitor(env)
         env.reset(seed=seed)
         env.action_space.seed(seed)
@@ -22,7 +50,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="HalfCheetah-v5")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--timesteps", type=int, default=1_000_000)
+    parser.add_argument("--timesteps", type=int, default=300_000)
     parser.add_argument("--eval_freq", type=int, default=10_000)
     parser.add_argument("--n_eval_episodes", type=int, default=10)
     args = parser.parse_args()
@@ -73,3 +101,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    

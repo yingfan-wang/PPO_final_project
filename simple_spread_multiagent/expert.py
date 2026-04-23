@@ -245,7 +245,6 @@ def collect_expert_dataset(
     samples: int,
     seed: int,
     num_envs: int,
-    use_agent_id: bool,
     local_ratio: float,
     max_cycles: int,
     continuous_actions: bool,
@@ -268,9 +267,7 @@ def collect_expert_dataset(
 
     try:
         while len(actor_observations) * num_envs < samples:
-            actor_inputs = build_actor_inputs(
-                observations, use_agent_id=use_agent_id
-            ).astype(np.float32)
+            actor_inputs = build_actor_inputs(observations).astype(np.float32)
             targets = np.stack(
                 [assignment_target_indices(env) for env in envs.envs], axis=0
             ).astype(np.int64)

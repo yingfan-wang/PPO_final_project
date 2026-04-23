@@ -23,6 +23,7 @@ class MultiAgentConfig:
     timesteps: int = 1_000_000
     eval_freq: int = 10_000
     n_eval_episodes: int = 10
+    log_interval: int = 1
     num_envs: int = 64
     rollout_steps: int = 25
     learning_rate: float = 1e-4
@@ -34,16 +35,18 @@ class MultiAgentConfig:
     max_grad_norm: float = 0.5
     update_epochs: int = 4
     minibatch_size: int = 1600
-    assignment_aux_coef: float = 0.0
+    assignment_aux_coef: float = 0.1
     actor_hidden_sizes: tuple[int, int] = field(default_factory=lambda: (128, 128))
     critic_hidden_sizes: tuple[int, int] = field(default_factory=lambda: (128, 128))
     local_ratio: float = DEFAULT_LOCAL_RATIO
     max_cycles: int = DEFAULT_MAX_CYCLES
     continuous_actions: bool = DEFAULT_CONTINUOUS_ACTIONS
-    terminate_on_success: bool = False
+    terminate_on_success: bool = True
     curriculum: bool = False
     curriculum_switch_step: int = 0
-    use_agent_id: bool = True
+    # Kept for backward-compatible checkpoint loading; the current joint actor
+    # uses fixed-order team features and does not consume agent IDs.
+    use_agent_id: bool = False
     expert_warmstart_samples: int = 0
     expert_warmstart_epochs: int = 0
     expert_warmstart_batch_size: int = 512

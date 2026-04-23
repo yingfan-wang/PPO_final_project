@@ -30,20 +30,22 @@ Compared with the naive baseline, this explicitly tackles:
 
 ## Fair Main Comparison
 
-The fairest baseline-vs-multi-agent result is with:
+The current baseline-vs-multi-agent result is with:
 
 - `expert_warmstart_samples=0`
 - `expert_warmstart_epochs=0`
 - `assignment_aux_coef=0.1`
 
-The final fair 3-seed comparison is recorded in:
+The latest 3-seed comparison is recorded in:
 
-- [results/simple_spread_fair_comparison_no_warmstart.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_fair_comparison_no_warmstart.md)
+- [results/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_seed012_summary.md)
 
 Headline result:
 
-- naive baseline mean return: `-24.156`
-- multi-agent mean return: `-6.227`
+- baseline final 3-seed eval mean: `-19.589`
+- multi-agent final 3-seed eval mean: `-5.743`
+- baseline 60-episode re-eval mean: `-20.560`
+- multi-agent 60-episode re-eval mean: `-6.816`
 
 ## Recommended Training Command
 

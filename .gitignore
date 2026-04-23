@@ -23,3 +23,9 @@ events.out.tfevents.*
 # throwaway experiment artifacts
 results/test_*.png
 simple_spread_multiagent/sweep_results.csv
+simple_spread_baseline/animations/**/*.gif
+simple_spread_baseline/animations/**/*.webp
+simple_spread_multiagent/animations/**/*.gif
+simple_spread_multiagent/animations/**/*.webp
+results/simple_spread_side_by_side_seed*.gif
+results/simple_spread_side_by_side_seed*.webp

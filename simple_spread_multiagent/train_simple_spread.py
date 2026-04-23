@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import time
 
 import numpy as np
 
@@ -43,6 +44,7 @@ def parse_args() -> MultiAgentConfig:
     parser.add_argument("--timesteps", type=int, default=1_000_000)
     parser.add_argument("--eval_freq", type=int, default=10_000)
     parser.add_argument("--n_eval_episodes", type=int, default=10)
+    parser.add_argument("--log_interval", type=int, default=1)
     parser.add_argument("--num_envs", type=int, default=64)
     parser.add_argument("--rollout_steps", type=int, default=25)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
@@ -54,14 +56,13 @@ def parse_args() -> MultiAgentConfig:
     parser.add_argument("--max_grad_norm", type=float, default=0.5)
     parser.add_argument("--update_epochs", type=int, default=4)
     parser.add_argument("--minibatch_size", type=int, default=1600)
-    parser.add_argument("--assignment_aux_coef", type=float, default=0.0)
+    parser.add_argument("--assignment_aux_coef", type=float, default=0.1)
     parser.add_argument("--local_ratio", type=float, default=0.5)
     parser.add_argument("--max_cycles", type=int, default=25)
     parser.add_argument("--continuous_actions", type=str2bool, default=False)
-    parser.add_argument("--terminate_on_success", type=str2bool, default=False)
+    parser.add_argument("--terminate_on_success", type=str2bool, default=True)
     parser.add_argument("--curriculum", type=str2bool, default=False)
     parser.add_argument("--curriculum_switch_step", type=int, default=0)
-    parser.add_argument("--use_agent_id", type=str2bool, default=True)
     parser.add_argument("--expert_warmstart_samples", type=int, default=0)
     parser.add_argument("--expert_warmstart_epochs", type=int, default=0)
     parser.add_argument("--expert_warmstart_batch_size", type=int, default=512)
@@ -73,6 +74,7 @@ def parse_args() -> MultiAgentConfig:
         timesteps=args.timesteps,
         eval_freq=args.eval_freq,
         n_eval_episodes=args.n_eval_episodes,
+        log_interval=args.log_interval,
         num_envs=args.num_envs,
         rollout_steps=args.rollout_steps,
         learning_rate=args.learning_rate,
@@ -91,7 +93,6 @@ def parse_args() -> MultiAgentConfig:
         terminate_on_success=args.terminate_on_success,
         curriculum=args.curriculum,
         curriculum_switch_step=args.curriculum_switch_step,
-        use_agent_id=args.use_agent_id,
         expert_warmstart_samples=args.expert_warmstart_samples,
         expert_warmstart_epochs=args.expert_warmstart_epochs,
         expert_warmstart_batch_size=args.expert_warmstart_batch_size,
@@ -105,6 +106,8 @@ def validate_config(config: MultiAgentConfig) -> None:
         raise ValueError("--timesteps and --eval_freq must be positive.")
     if config.n_eval_episodes <= 0 or config.num_envs <= 0:
         raise ValueError("--n_eval_episodes and --num_envs must be positive.")
+    if config.log_interval <= 0:
+        raise ValueError("--log_interval must be positive.")
     if config.rollout_steps <= 0 or config.minibatch_size <= 0:
         raise ValueError("--rollout_steps and --minibatch_size must be positive.")
     if config.local_ratio < 0.0 or config.local_ratio > 1.0:
@@ -187,6 +190,13 @@ def main() -> None:
         "learning_rate": config.expert_warmstart_lr,
     }
     write_json(run_dir / "run_config.json", run_config)
+    total_updates = effective_timesteps // (config.rollout_steps * config.num_envs)
+    start_time = time.time()
+    print(
+        "Starting multi-agent training: "
+        f"run_dir={run_dir}, env_steps={effective_timesteps}, updates={total_updates}, "
+        f"num_envs={config.num_envs}, rollout_steps={config.rollout_steps}"
+    , flush=True)
 
     envs = SimpleSpreadVectorEnv(
         num_envs=config.num_envs,
@@ -204,7 +214,6 @@ def main() -> None:
             samples=config.expert_warmstart_samples,
             seed=config.seed + 50_000,
             num_envs=config.num_envs,
-            use_agent_id=config.use_agent_id,
             local_ratio=config.local_ratio,
             max_cycles=config.max_cycles,
             continuous_actions=config.continuous_actions,
@@ -312,6 +321,11 @@ def main() -> None:
                 best_dir / "best_model.pt",
                 metadata={"env_steps": env_steps, "summary": summary},
             )
+        print(
+            f"[multi-agent eval] env_steps={env_steps} "
+            f"mean_return={summary['mean_episode_return']:.3f} "
+            f"success={summary['success_near_end_rate']:.2%}"
+        , flush=True)
         return summary["mean_episode_return"]
 
     try:
@@ -319,9 +333,7 @@ def main() -> None:
             buffer = agent.build_buffer()
             rollout_records: list[dict[str, float]] = []
             for _ in range(config.rollout_steps):
-                actor_observations = build_actor_inputs(
-                    observations, use_agent_id=config.use_agent_id
-                )
+                actor_observations = build_actor_inputs(observations)
                 critic_observations = build_critic_inputs(joint_states)
                 assignment_targets = assignment_target_indices_from_observations(
                     observations
@@ -370,6 +382,16 @@ def main() -> None:
                     "rollout_landmarks_covered_mean": rollout_summary["mean_landmarks_covered"],
                 },
             )
+            if update_idx == 0 or (update_idx + 1) % config.log_interval == 0:
+                elapsed = time.time() - start_time
+                print(
+                    f"[multi-agent update {update_idx + 1}] env_steps={env_steps} "
+                    f"policy_loss={train_metrics['policy_loss']:.4f} "
+                    f"value_loss={train_metrics['value_loss']:.4f} "
+                    f"assignment_aux={train_metrics['assignment_aux_loss']:.4f} "
+                    f"rollout_return={rollout_summary['mean_episode_return']:.3f} "
+                    f"elapsed={elapsed:.1f}s"
+                , flush=True)
 
             while env_steps >= next_eval_step:
                 run_evaluation(config.seed + 100_000 + len(eval_env_steps) * 1_000)
@@ -384,10 +406,10 @@ def main() -> None:
     finally:
         envs.close()
 
-    print(f"Run directory: {run_dir}")
-    print(f"Effective environment steps: {env_steps}")
-    print(f"Effective agent steps: {env_steps * N_AGENTS}")
-    print(f"Best evaluation mean return: {best_eval_return:.3f}")
+    print(f"Run directory: {run_dir}", flush=True)
+    print(f"Effective environment steps: {env_steps}", flush=True)
+    print(f"Effective agent steps: {env_steps * N_AGENTS}", flush=True)
+    print(f"Best evaluation mean return: {best_eval_return:.3f}", flush=True)
 
 
 if __name__ == "__main__":

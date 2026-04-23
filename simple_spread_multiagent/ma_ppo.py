@@ -8,8 +8,8 @@ import torch
 from torch import nn
 
 from simple_spread_baseline.config import ACTION_DIM, STATE_DIM
+from simple_spread_baseline.networks import build_mlp, orthogonal_init
 from simple_spread_baseline.utils import resolve_device
-from simple_spread_multiagent.centralized_critic import CentralizedCritic
 from simple_spread_multiagent.config import MultiAgentConfig
 from simple_spread_multiagent.env import ACTOR_INPUT_DIM, build_actor_inputs, build_critic_inputs
 from simple_spread_multiagent.expert import (
@@ -17,7 +17,6 @@ from simple_spread_multiagent.expert import (
     assignment_indices_to_env_actions,
 )
 from simple_spread_multiagent.networks import JointAssignmentActor
-from simple_spread_multiagent.rollout_buffer import CentralizedRolloutBuffer
 
 
 def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> float:
@@ -25,6 +24,100 @@ def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if variance < 1e-8:
         return 0.0
     return float(1.0 - np.var(y_true - y_pred) / variance)
+
+
+class CentralizedCritic(nn.Module):
+    def __init__(self, critic_input_dim: int, hidden_sizes: tuple[int, ...]) -> None:
+        super().__init__()
+        self.network = build_mlp(
+            input_dim=critic_input_dim,
+            hidden_sizes=hidden_sizes,
+            output_dim=1,
+            output_gain=1.0,
+        )
+        if isinstance(self.network[-1], nn.Linear):
+            orthogonal_init(self.network[-1], gain=1.0)
+
+    def forward(self, critic_input: torch.Tensor) -> torch.Tensor:
+        return self.network(critic_input).squeeze(-1)
+
+
+class CentralizedRolloutBuffer:
+    def __init__(
+        self,
+        rollout_steps: int,
+        num_envs: int,
+        actor_obs_dim: int,
+        critic_obs_dim: int,
+        gamma: float,
+        gae_lambda: float,
+    ) -> None:
+        self.rollout_steps = rollout_steps
+        self.num_envs = num_envs
+        self.actor_obs_dim = actor_obs_dim
+        self.critic_obs_dim = critic_obs_dim
+        self.gamma = gamma
+        self.gae_lambda = gae_lambda
+        self.reset()
+
+    def reset(self) -> None:
+        shape = (self.rollout_steps, self.num_envs)
+        self.actor_observations = np.zeros(shape + (self.actor_obs_dim,), dtype=np.float32)
+        self.critic_observations = np.zeros(shape + (self.critic_obs_dim,), dtype=np.float32)
+        self.actions = np.zeros(shape, dtype=np.int64)
+        self.assignment_targets = np.zeros(shape, dtype=np.int64)
+        self.log_probs = np.zeros(shape, dtype=np.float32)
+        self.rewards = np.zeros(shape, dtype=np.float32)
+        self.dones = np.zeros(shape, dtype=np.float32)
+        self.values = np.zeros(shape, dtype=np.float32)
+        self.advantages = np.zeros(shape, dtype=np.float32)
+        self.returns = np.zeros(shape, dtype=np.float32)
+        self.position = 0
+
+    def add(
+        self,
+        actor_observations: np.ndarray,
+        critic_observations: np.ndarray,
+        actions: np.ndarray,
+        assignment_targets: np.ndarray,
+        log_probs: np.ndarray,
+        rewards: np.ndarray,
+        dones: np.ndarray,
+        values: np.ndarray,
+    ) -> None:
+        self.actor_observations[self.position] = actor_observations
+        self.critic_observations[self.position] = critic_observations
+        self.actions[self.position] = actions.astype(np.int64)
+        self.assignment_targets[self.position] = assignment_targets.astype(np.int64)
+        self.log_probs[self.position] = log_probs
+        self.rewards[self.position] = rewards
+        self.dones[self.position] = dones
+        self.values[self.position] = values
+        self.position += 1
+
+    def compute_returns_and_advantages(self, last_values: np.ndarray) -> None:
+        last_advantage = np.zeros(self.num_envs, dtype=np.float32)
+        for step in reversed(range(self.rollout_steps)):
+            next_values = last_values if step == self.rollout_steps - 1 else self.values[step + 1]
+            next_non_terminal = 1.0 - self.dones[step]
+            delta = self.rewards[step] + self.gamma * next_values * next_non_terminal - self.values[step]
+            last_advantage = delta + self.gamma * self.gae_lambda * next_non_terminal * last_advantage
+            self.advantages[step] = last_advantage
+        self.returns = self.advantages + self.values
+
+    def get_training_arrays(self) -> dict[str, np.ndarray]:
+        advantages = self.advantages.reshape(-1)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        return {
+            "actor_observations": self.actor_observations.reshape(-1, self.actor_obs_dim),
+            "critic_observations": self.critic_observations.reshape(-1, self.critic_obs_dim),
+            "actions": self.actions.reshape(-1).astype(np.int64),
+            "assignment_targets": self.assignment_targets.reshape(-1).astype(np.int64),
+            "log_probs": self.log_probs.reshape(-1),
+            "advantages": advantages.astype(np.float32),
+            "returns": self.returns.reshape(-1),
+            "values": self.values.reshape(-1),
+        }
 
 
 class MAPPOAgent:
@@ -59,9 +152,7 @@ class MAPPOAgent:
     def select_actions(
         self, observations: np.ndarray, deterministic: bool = False
     ) -> np.ndarray:
-        actor_inputs = build_actor_inputs(
-            observations, use_agent_id=self.config.use_agent_id
-        )
+        actor_inputs = build_actor_inputs(observations)
         obs_tensor = torch.as_tensor(actor_inputs, dtype=torch.float32, device=self.device)
         with torch.no_grad():
             assignment_indices, _ = self.actor.sample(
@@ -77,9 +168,7 @@ class MAPPOAgent:
     def rollout_step(
         self, observations: np.ndarray, joint_states: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        actor_inputs = build_actor_inputs(
-            observations, use_agent_id=self.config.use_agent_id
-        )
+        actor_inputs = build_actor_inputs(observations)
         critic_inputs = build_critic_inputs(joint_states)
 
         actor_tensor = torch.as_tensor(actor_inputs, dtype=torch.float32, device=self.device)

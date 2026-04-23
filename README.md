@@ -3,7 +3,7 @@
 This repository now contains three PPO experiment tracks:
 
 - `mujoco/`: the original Stable-Baselines3 PPO workflow for Gymnasium MuJoCo tasks
-- `simple_spread_baseline/`: a naive Simple Spread transfer that keeps PPO local to each agent sample
+- `simple_spread_baseline/`: a naive Simple Spread transfer where each agent independently picks a landmark target with PPO and a simple local controller converts that target into a move
 - `simple_spread_multiagent/`: a structured multi-agent PPO transfer that uses a coordinated assignment prior to address coordination
 
 The Simple Spread implementation follows the MPE2 `simple_spread_v3` parallel environment with:
@@ -29,9 +29,7 @@ rl_final_project/
 |  |- plot_results.py
 |  |- config.py
 |  |- env.py
-|  |- wrappers.py
 |  |- networks.py
-|  |- rollout_buffer.py
 |  |- ppo.py
 |  |- utils.py
 |  `- README.md
@@ -44,10 +42,7 @@ rl_final_project/
 |  |- env.py
 |  |- networks.py
 |  |- expert.py
-|  |- centralized_critic.py
-|  |- rollout_buffer.py
 |  |- ma_ppo.py
-|  |- utils.py
 |  `- README.md
 |- results/
 |- requirements.txt
@@ -107,15 +102,17 @@ python mujoco/plot_results.py --env_id HalfCheetah-v5 --seeds 0 1 2
 
 ## Simple Spread Baseline
 
-The baseline is intentionally naive. It uses one shared local-observation actor-critic network, but every PPO sample is still treated like a standard single-agent sample:
+The baseline is intentionally naive. It uses one shared local-observation actor-critic network, but each agent only chooses which landmark to chase and a simple local controller turns that choice into a `Discrete(5)` move:
 
 - actor input: one agent's local observation
 - critic input: that same local observation
+- policy output: one of the three landmarks
+- low-level control: a simple local axis-aligned move toward the chosen landmark
 - no centralized state in the value function
 - no agent IDs by default
 - no communication or reward shaping
 
-This is the coordination-limited reference point for the report. It can learn local behavior, but it does not explicitly solve team-level credit assignment.
+This is the coordination-limited reference point for the report. It learns landmark-seeking behavior, but it still makes independent target choices and does not explicitly solve team-level credit assignment or assignment conflicts.
 
 The training script also exposes the MPE2 `terminate_on_success` and `curriculum` options so we can run matched ablations without changing the code path.
 
@@ -123,18 +120,16 @@ Train:
 
 ```bash
 python simple_spread_baseline/train_simple_spread.py \
-  --seed 8600 \
+  --seed 0 \
   --timesteps 16000 \
   --eval_freq 4000 \
   --n_eval_episodes 20 \
-  --num_envs 64 \
-  --rollout_steps 25 \
-  --minibatch_size 1600 \
-  --learning_rate 7e-4 \
-  --update_epochs 10 \
-  --ent_coef 0.01 \
+  --learning_rate 5e-4 \
+  --update_epochs 15 \
+  --ent_coef 0.0 \
   --continuous_actions false \
   --terminate_on_success true \
+  --curriculum true \
   --device cpu
 ```
 
@@ -255,16 +250,16 @@ This keeps baseline and multi-agent comparisons aligned on equal environment-ste
 
 ## Final Fair Result
 
-The final no-warm-start 3-seed comparison is summarized in [results/simple_spread_fair_comparison_no_warmstart.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_fair_comparison_no_warmstart.md).
+The current 3-seed comparison is summarized in [results/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_seed012_summary.md).
 
-Using matched `terminate_on_success=true` discrete-action training runs with no expert warm-start:
+Using matched `terminate_on_success=true` discrete-action training runs:
 
-- naive baseline 3-seed mean return: `-24.156`
-- multi-agent 3-seed mean return: `-6.227`
-- naive baseline success near end: `0.00`
-- multi-agent success near end: `0.5167`
+- baseline final 3-seed eval mean: `-19.589`
+- multi-agent final 3-seed eval mean: `-5.743`
+- baseline 60-episode re-eval mean: `-20.560`
+- multi-agent 60-episode re-eval mean: `-6.816`
 
-So the final multi-agent implementation is both fairer and substantially stronger than the naive PPO transfer.
+So the final multi-agent implementation is still substantially stronger, but the revised baseline now visibly learns to chase landmarks instead of failing at the raw control layer.
 
 ## Smoke Test Commands
 

@@ -19,10 +19,7 @@ def build_joint_observations(local_observations: np.ndarray) -> np.ndarray:
     )
 
 
-def build_actor_inputs(
-    local_observations: np.ndarray, use_agent_id: bool | None = None
-) -> np.ndarray:
-    del use_agent_id
+def build_actor_inputs(local_observations: np.ndarray) -> np.ndarray:
     landmark_features = local_observations[..., LANDMARK_REL_SLICE]
     other_agent_features = local_observations[..., OTHER_AGENT_REL_SLICE]
     return np.concatenate(

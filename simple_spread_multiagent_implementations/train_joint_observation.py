@@ -95,14 +95,22 @@ class JointObsAgentEnv(gym.Env):
         self._last_obs = obs
         return self._make_joint_obs(obs), infos.get(self.agent_id, {})
 
+    def _make_joint_obs_for(self, obs: dict, for_agent: str) -> np.ndarray:
+        """Build joint obs from a specific agent's perspective — own obs always first."""
+        parts = [obs[for_agent]]
+        for a in self.all_agent_ids:
+            if a != for_agent:
+                parts.append(obs[a])
+        return np.concatenate(parts, dtype=np.float32)
+
     def step(self, action):
         all_actions = {}
         for a in self.penv.agents:
             if a == self.agent_id:
                 all_actions[a] = action
             elif a in self.frozen_models and self.frozen_models[a] is not None:
-                # Frozen models also use joint obs
-                frozen_joint = self._make_joint_obs(self._last_obs)[np.newaxis]
+                # build joint obs FROM THAT AGENT'S perspective, not self's
+                frozen_joint = self._make_joint_obs_for(self._last_obs, a)[np.newaxis]
                 frozen_action, _ = self.frozen_models[a].predict(frozen_joint, deterministic=False)
                 all_actions[a] = frozen_action[0]
             else:

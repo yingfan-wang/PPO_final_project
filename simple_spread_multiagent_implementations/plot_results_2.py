@@ -29,26 +29,69 @@ from matplotlib.backends.backend_pdf import PdfPages
 # CONFIG — add/remove/rename runs here, nothing else needs to change
 # ---------------------------------------------------------------------------
 
+# RUNS = [
+#     {
+#         "label": "Shared Policy",
+#         "color": "#2196F3",
+#         "npz": "runs/simple_spread/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Multi PPO agent_0",
+#         "color": "#F44336",
+#         "npz": "runs/multiagent_spread/agent_0/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Multi PPO agent_1",
+#         "color": "#4CAF50",
+#         "npz": "runs/multiagent_spread/agent_1/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Multi PPO agent_2",
+#         "color": "#FF9800",
+#         "npz": "runs/multiagent_spread/agent_2/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Joint Obs agent_0",  # ← added
+#         "color": "#9C27B0",
+#         "npz": "runs/joint_obs_spread/agent_0/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Joint Obs agent_1",  # ← added
+#         "color": "#E91E63",
+#         "npz": "runs/joint_obs_spread/agent_1/eval_logs/evaluations.npz",
+#     },
+#     {
+#         "label": "Joint Obs agent_2",  # ← added
+#         "color": "#607D8B",
+#         "npz": "runs/joint_obs_spread/agent_2/eval_logs/evaluations.npz",
+#     },
+# ]
+# instead of plotting agent_0, agent_1, agent_2 separately
+# average them into one "IPPO" line and one "Joint" line
+
 RUNS = [
     {
-        "label": "Single PPO\n(shared policy)",
+        "label": "Shared Policy",
         "color": "#2196F3",
-        "npz":   "runs/simple_spread/eval_logs/evaluations.npz",
+        "npz_list": ["runs/simple_spread/eval_logs/evaluations.npz"],
     },
     {
-        "label": "Multi PPO\nagent_0",
+        "label": "IPPO",
         "color": "#F44336",
-        "npz":   "runs/multiagent_spread/agent_0/eval_logs/evaluations.npz",
+        "npz_list": [
+            "runs/multiagent_spread/agent_0/eval_logs/evaluations.npz",
+            "runs/multiagent_spread/agent_1/eval_logs/evaluations.npz",
+            "runs/multiagent_spread/agent_2/eval_logs/evaluations.npz",
+        ],
     },
     {
-        "label": "Multi PPO\nagent_1",
-        "color": "#4CAF50",
-        "npz":   "runs/multiagent_spread/agent_1/eval_logs/evaluations.npz",
-    },
-    {
-        "label": "Multi PPO\nagent_2",
-        "color": "#FF9800",
-        "npz":   "runs/multiagent_spread/agent_2/eval_logs/evaluations.npz",
+        "label": "Joint Obs",
+        "color": "#9C27B0",
+        "npz_list": [
+            "runs/joint_obs_spread/agent_0/eval_logs/evaluations.npz",
+            "runs/joint_obs_spread/agent_1/eval_logs/evaluations.npz",
+            "runs/joint_obs_spread/agent_2/eval_logs/evaluations.npz",
+        ],
     },
 ]
 
@@ -60,19 +103,39 @@ OUTPUT_PDF    = "results.pdf"
 # LOAD
 # ---------------------------------------------------------------------------
 
-def load_npz(path: str) -> dict | None:
-    p = Path(path)
-    if not p.exists():
-        print(f"  Missing: {path}")
-        return None
-    data = np.load(p)
-    # EvalCallback saves: timesteps, results (n_evals x n_episodes), ep_lengths
-    timesteps = data["timesteps"]                  # (n_evals,)
-    results   = data["results"]                    # (n_evals, n_episodes)
-    mean_r    = results.mean(axis=1)               # (n_evals,)
-    std_r     = results.std(axis=1)
-    return {"timesteps": timesteps, "mean": mean_r, "std": std_r, "raw": results}
+# def load_npz(path: str) -> dict | None:
+#     p = Path(path)
+#     if not p.exists():
+#         print(f"  Missing: {path}")
+#         return None
+#     data = np.load(p)
+#     # EvalCallback saves: timesteps, results (n_evals x n_episodes), ep_lengths
+#     timesteps = data["timesteps"]                  # (n_evals,)
+#     results   = data["results"]                    # (n_evals, n_episodes)
+#     mean_r    = results.mean(axis=1)               # (n_evals,)
+#     std_r     = results.std(axis=1)
+#     return {"timesteps": timesteps, "mean": mean_r, "std": std_r, "raw": results}
+    
+def load_npz(run: dict) -> dict | None:
+    all_means = []
+    for path in run["npz_list"]:
+        p = Path(path)
+        if not p.exists():
+            print(f"  Missing: {path}")
+            continue
+        data = np.load(p)
+        all_means.append(data["results"].mean(axis=1))
 
+    if not all_means:
+        return None
+
+    min_len = min(len(m) for m in all_means)
+    stacked = np.stack([m[:min_len] for m in all_means])
+    mean    = stacked.mean(axis=0)
+    std     = stacked.std(axis=0)
+    x       = np.linspace(0, 100, min_len)  # normalized x axis
+
+    return {**run, "x": x, "mean": mean, "std": std}
 
 def smooth(values, window):
     if len(values) <= window:
@@ -96,7 +159,8 @@ def make_pdf(loaded: list[dict]):
 
         for run in loaded:
             d  = run["data"]
-            ts = d["timesteps"]
+            # ts = d["timesteps"]
+            ts = d["x"]
             ax_raw.plot(ts, d["mean"], alpha=0.35, color=run["color"], linewidth=1.0)
             ax_raw.fill_between(ts,
                                 d["mean"] - d["std"],
@@ -139,7 +203,8 @@ def make_pdf(loaded: list[dict]):
             d    = run["data"]
             # Last 25% of eval checkpoints = converged behaviour
             n    = max(1, len(d["mean"]) // 4)
-            tail = d["raw"][-n:].flatten()
+            # tail = d["raw"][-n:].flatten()
+            tail = d["mean"][-n:]
             lbl  = run["label"].replace("\n", " ")
 
             ax_hist.hist(tail, bins=30, alpha=0.45, color=run["color"],
@@ -153,7 +218,8 @@ def make_pdf(loaded: list[dict]):
             if len(d["mean"]) >= SMOOTH_WINDOW:
                 roll_std = [d["mean"][max(0,i-SMOOTH_WINDOW):i].std()
                             for i in range(SMOOTH_WINDOW, len(d["mean"]) + 1)]
-                ax_conv.plot(d["timesteps"][SMOOTH_WINDOW - 1:], roll_std,
+                # ax_conv.plot(d["timesteps"][SMOOTH_WINDOW - 1:], roll_std,
+                ax_conv.plot(d["x"][SMOOTH_WINDOW - 1:], roll_std,
                              label=lbl, color=run["color"], linewidth=1.8)
 
         ax_hist.set_title("Reward distribution\n(last 25% of evals)", fontsize=10)
@@ -194,10 +260,12 @@ def make_pdf(loaded: list[dict]):
         for run in loaded:
             d    = run["data"]
             n    = max(1, len(d["mean"]) // 4)
-            tail = d["raw"][-n:].flatten()
+            # tail = d["raw"][-n:].flatten()
+            tail = d["mean"][-n:]
             rows.append([
                 run["label"].replace("\n", " "),
-                f"{d['timesteps'][-1]/1e3:.0f}k",
+                # f"{d['timesteps'][-1]/1e3:.0f}k",
+                f"{d['x'][-1]/1e3:.0f}k",
                 f"{len(d['mean'])}",
                 f"{tail.mean():.3f}",
                 f"{tail.std():.3f}",
@@ -237,10 +305,12 @@ if __name__ == "__main__":
     loaded = []
     for run in RUNS:
         print(f"  {run['label'].replace(chr(10), ' ')}...")
-        data = load_npz(run["npz"])
+        # data = load_npz(run["npz"])
+        data = load_npz(run)
         if data:
             loaded.append({**run, "data": data})
-            print(f"    {len(data['timesteps'])} eval checkpoints, "
+            # print(f"    {len(data['timesteps'])} eval checkpoints, "
+            print(f"    {len(data['x'])} eval checkpoints, "
                   f"final mean reward: {data['mean'][-1]:.3f}")
 
     if not loaded:

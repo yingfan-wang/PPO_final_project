@@ -1,9 +1,10 @@
 # Simple Spread Baseline
 
-This folder contains the spec-aligned naive PPO transfer for MPE2 Simple
-Spread. The policy is shared across agents, but every PPO sample uses one
-agent's local observation for both the actor and the critic. The final report
-uses the discrete `Discrete(5)` action version of `simple_spread_v3`.
+This folder contains the revised naive PPO transfer for MPE2 Simple Spread.
+The policy is shared across agents, and every PPO sample still uses one
+agent's local observation for both the actor and the critic, but the actor now
+chooses a landmark target instead of a raw movement action. A simple local
+controller converts that target choice into a discrete `Discrete(5)` move.
 
 That keeps the comparison intentionally simple:
 
@@ -12,7 +13,10 @@ That keeps the comparison intentionally simple:
 - no agent IDs
 - no communication module
 - one PPO update rule applied to flattened per-agent samples
+- no joint assignment logic, so agents can still chase the same landmark
 
 In the final 3-seed fair comparison, this baseline reached a mean return of
-`-24.156` over 60-episode checkpoint re-evaluations, which makes it a clear
-coordination-limited reference point against the structured multi-agent method.
+`-20.560` over 60-episode checkpoint re-evaluations, with a final training-curve
+mean of `-19.589`. That makes it a clearer coordination-limited reference point:
+it learns to move toward landmarks, but it still collides and under-covers
+compared with the structured multi-agent method.

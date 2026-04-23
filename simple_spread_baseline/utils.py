@@ -190,3 +190,87 @@ def run_policy_episodes(
     finally:
         env.close()
     return records
+
+
+def record_policy_episode_frames(
+    agent,
+    *,
+    seed: int,
+    local_ratio: float,
+    max_cycles: int,
+    continuous_actions: bool,
+    terminate_on_success: bool,
+    deterministic: bool,
+    fps: int = 6,
+    hold_last_seconds: float = 2.0,
+    pad_to_max_cycles: bool = True,
+) -> tuple[list[np.ndarray], dict[str, float]]:
+    env = SimpleSpreadEnv(
+        local_ratio=local_ratio,
+        max_cycles=max_cycles,
+        continuous_actions=continuous_actions,
+        terminate_on_success=terminate_on_success,
+        render_mode="rgb_array",
+    )
+    tracker = EpisodeTracker()
+    frames: list[np.ndarray] = []
+    try:
+        observations, _, _ = env.reset(seed=seed)
+        first_frame = env.render()
+        if first_frame is not None:
+            frames.append(np.asarray(first_frame).copy())
+        done = False
+        while not done:
+            action_batch = agent.select_actions(
+                observations[None, ...], deterministic=deterministic
+            )[0]
+            observations, _, rewards, done, info = env.step(action_batch)
+            tracker.update(rewards, info["step_metrics"])
+            frame = env.render()
+            if frame is not None:
+                frames.append(np.asarray(frame).copy())
+    finally:
+        env.close()
+
+    if frames:
+        if pad_to_max_cycles:
+            target_frame_count = max_cycles + 1
+            while len(frames) < target_frame_count:
+                frames.append(frames[-1].copy())
+        hold_last_frames = max(0, int(round(max(0.0, hold_last_seconds) * max(1, fps))))
+        for _ in range(hold_last_frames):
+            frames.append(frames[-1].copy())
+
+    return frames, tracker.summary()
+
+
+def save_animation(path: Path, frames: list[np.ndarray], fps: int = 6) -> None:
+    if not frames:
+        raise ValueError("Cannot save animation with no frames.")
+    ensure_parent(path)
+    import imageio.v2 as imageio
+
+    suffix = path.suffix.lower()
+    if suffix == ".gif":
+        imageio.mimsave(path, frames, duration=1.0 / max(1, fps), loop=0)
+        return
+    if suffix == ".webp":
+        from PIL import Image
+
+        pil_frames = [Image.fromarray(np.asarray(frame)) for frame in frames]
+        pil_frames[0].save(
+            path,
+            save_all=True,
+            append_images=pil_frames[1:],
+            duration=max(1, int(round(1000 / max(1, fps)))),
+            loop=0,
+            format="WEBP",
+            quality=90,
+            method=6,
+        )
+        return
+    raise ValueError(f"Unsupported animation format for {path}. Use .gif or .webp.")
+
+
+def save_gif(path: Path, frames: list[np.ndarray], fps: int = 6) -> None:
+    save_animation(path, frames, fps=fps)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import time
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -32,22 +33,23 @@ def parse_args() -> BaselineConfig:
     parser.add_argument("--timesteps", type=int, default=1_000_000)
     parser.add_argument("--eval_freq", type=int, default=10_000)
     parser.add_argument("--n_eval_episodes", type=int, default=10)
-    parser.add_argument("--num_envs", type=int, default=4)
-    parser.add_argument("--rollout_steps", type=int, default=256)
-    parser.add_argument("--learning_rate", type=float, default=3e-4)
+    parser.add_argument("--log_interval", type=int, default=1)
+    parser.add_argument("--num_envs", type=int, default=64)
+    parser.add_argument("--rollout_steps", type=int, default=25)
+    parser.add_argument("--learning_rate", type=float, default=5e-4)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--gae_lambda", type=float, default=0.95)
     parser.add_argument("--clip_coef", type=float, default=0.2)
     parser.add_argument("--ent_coef", type=float, default=0.0)
     parser.add_argument("--vf_coef", type=float, default=0.5)
     parser.add_argument("--max_grad_norm", type=float, default=0.5)
-    parser.add_argument("--update_epochs", type=int, default=10)
-    parser.add_argument("--minibatch_size", type=int, default=256)
+    parser.add_argument("--update_epochs", type=int, default=15)
+    parser.add_argument("--minibatch_size", type=int, default=1600)
     parser.add_argument("--local_ratio", type=float, default=0.5)
     parser.add_argument("--max_cycles", type=int, default=25)
     parser.add_argument("--continuous_actions", type=str2bool, default=False)
-    parser.add_argument("--terminate_on_success", type=str2bool, default=False)
-    parser.add_argument("--curriculum", type=str2bool, default=False)
+    parser.add_argument("--terminate_on_success", type=str2bool, default=True)
+    parser.add_argument("--curriculum", type=str2bool, default=True)
     parser.add_argument("--curriculum_switch_step", type=int, default=0)
     parser.add_argument("--device", type=str, default="auto")
     args = parser.parse_args()
@@ -56,6 +58,7 @@ def parse_args() -> BaselineConfig:
         timesteps=args.timesteps,
         eval_freq=args.eval_freq,
         n_eval_episodes=args.n_eval_episodes,
+        log_interval=args.log_interval,
         num_envs=args.num_envs,
         rollout_steps=args.rollout_steps,
         learning_rate=args.learning_rate,
@@ -82,8 +85,12 @@ def validate_config(config: BaselineConfig) -> None:
         raise ValueError("--timesteps and --eval_freq must be positive.")
     if config.n_eval_episodes <= 0 or config.num_envs <= 0:
         raise ValueError("--n_eval_episodes and --num_envs must be positive.")
+    if config.log_interval <= 0:
+        raise ValueError("--log_interval must be positive.")
     if config.rollout_steps <= 0 or config.minibatch_size <= 0:
         raise ValueError("--rollout_steps and --minibatch_size must be positive.")
+    if config.continuous_actions:
+        raise ValueError("The baseline currently supports discrete actions only.")
     if config.local_ratio < 0.0 or config.local_ratio > 1.0:
         raise ValueError("--local_ratio must be in [0, 1].")
     if config.curriculum_switch_step < 0:
@@ -124,16 +131,23 @@ def main() -> None:
     run_config["curriculum"] = config.curriculum
     run_config["curriculum_switch_step"] = curriculum_switch_step if config.curriculum else None
     run_config["method"] = (
-        "Naive PPO transfer to Simple Spread with a shared local-observation "
-        "actor-critic and no centralized critic."
+        "Shared local PPO where each agent independently selects a landmark target, "
+        "and a simple local controller turns that target choice into a discrete move."
     )
     run_config["actor_input"] = "One local observation per agent."
     run_config["critic_input"] = "The same one-agent local observation."
-    run_config["credit_assignment"] = "Environment reward only; no joint state."
+    run_config["credit_assignment"] = "Environment reward only; no joint assignment or centralized critic."
     run_config["action_space"] = (
         "continuous_box_5" if config.continuous_actions else "discrete_5"
     )
     write_json(run_dir / "run_config.json", run_config)
+    total_updates = effective_timesteps // (config.rollout_steps * config.num_envs)
+    start_time = time.time()
+    print(
+        "Starting baseline training: "
+        f"run_dir={run_dir}, env_steps={effective_timesteps}, updates={total_updates}, "
+        f"num_envs={config.num_envs}, rollout_steps={config.rollout_steps}"
+    , flush=True)
 
     envs = SimpleSpreadVectorEnv(
         num_envs=config.num_envs,
@@ -238,6 +252,11 @@ def main() -> None:
                 best_dir / "best_model.pt",
                 metadata={"env_steps": env_steps, "summary": summary},
             )
+        print(
+            f"[baseline eval] env_steps={env_steps} "
+            f"mean_return={summary['mean_episode_return']:.3f} "
+            f"success={summary['success_near_end_rate']:.2%}"
+        , flush=True)
         return summary["mean_episode_return"]
 
     try:
@@ -281,6 +300,15 @@ def main() -> None:
                     "rollout_landmarks_covered_mean": rollout_summary["mean_landmarks_covered"],
                 },
             )
+            if update_idx == 0 or (update_idx + 1) % config.log_interval == 0:
+                elapsed = time.time() - start_time
+                print(
+                    f"[baseline update {update_idx + 1}] env_steps={env_steps} "
+                    f"policy_loss={train_metrics['policy_loss']:.4f} "
+                    f"value_loss={train_metrics['value_loss']:.4f} "
+                    f"rollout_return={rollout_summary['mean_episode_return']:.3f} "
+                    f"elapsed={elapsed:.1f}s"
+                , flush=True)
 
             while env_steps >= next_eval_step:
                 run_evaluation(config.seed + 100_000 + len(eval_env_steps) * 1_000)
@@ -295,10 +323,10 @@ def main() -> None:
     finally:
         envs.close()
 
-    print(f"Run directory: {run_dir}")
-    print(f"Effective environment steps: {env_steps}")
-    print(f"Effective agent steps: {env_steps * N_AGENTS}")
-    print(f"Best evaluation mean return: {best_eval_return:.3f}")
+    print(f"Run directory: {run_dir}", flush=True)
+    print(f"Effective environment steps: {env_steps}", flush=True)
+    print(f"Effective agent steps: {env_steps * N_AGENTS}", flush=True)
+    print(f"Best evaluation mean return: {best_eval_return:.3f}", flush=True)
 
 
 if __name__ == "__main__":

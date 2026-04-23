@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument("--local_ratio", type=float, default=0.5)
     parser.add_argument("--max_cycles", type=int, default=25)
     parser.add_argument("--continuous_actions", type=str2bool, default=None)
-    parser.add_argument("--terminate_on_success", type=str2bool, default=False)
+    parser.add_argument("--terminate_on_success", type=str2bool, default=None)
     parser.add_argument("--device", type=str, default="cpu")
     return parser.parse_args()
 
@@ -39,6 +39,11 @@ def main() -> None:
         if args.continuous_actions is None
         else args.continuous_actions
     )
+    terminate_on_success = (
+        agent.config.terminate_on_success
+        if args.terminate_on_success is None
+        else args.terminate_on_success
+    )
     records = run_policy_episodes(
         agent=agent,
         episodes=args.episodes,
@@ -46,7 +51,7 @@ def main() -> None:
         local_ratio=args.local_ratio,
         max_cycles=args.max_cycles,
         continuous_actions=continuous_actions,
-        terminate_on_success=args.terminate_on_success,
+        terminate_on_success=terminate_on_success,
         deterministic=True,
     )
     summary = summarize_episode_records(records)

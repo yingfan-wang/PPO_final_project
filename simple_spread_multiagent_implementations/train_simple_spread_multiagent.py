@@ -8,6 +8,7 @@ from pettingzoo.utils import ParallelEnv
 
 import gymnasium as gym
 from gymnasium import spaces
+from shaped_reward import shape_reward
 
 
 class SpreadShapingWrapper(ParallelEnv):
@@ -138,25 +139,25 @@ class CoordinatedMultiAgentEnv(gym.Env):
         self._last_full_obs = obs
         self.all_agent_ids = list(self.penv.possible_agents)
 
-    def _shape_reward(self, agent, obs, base_reward):
-        agent_obs = obs[agent]
-        landmark_positions = agent_obs[4:10]
-        distances = [
-            np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
-            for i in range(3)
-        ]
-        nearest_dist = min(distances)
-        other_agent_obs = agent_obs[10:14]
-        agent_penalty = sum(
-            -1.0 for i in range(2)
-            if np.sqrt(other_agent_obs[2*i]**2 + other_agent_obs[2*i+1]**2) < 0.3
-        )
-        return (
-            base_reward
-            + 0.1 * np.mean(distances)
-            + 3.0 * np.exp(-10.0 * nearest_dist)
-            + agent_penalty
-        )
+    # def _shape_reward(self, agent, obs, base_reward):
+    #     agent_obs = obs[agent]
+    #     landmark_positions = agent_obs[4:10]
+    #     distances = [
+    #         np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
+    #         for i in range(3)
+    #     ]
+    #     nearest_dist = min(distances)
+    #     other_agent_obs = agent_obs[10:14]
+    #     agent_penalty = sum(
+    #         -1.0 for i in range(2)
+    #         if np.sqrt(other_agent_obs[2*i]**2 + other_agent_obs[2*i+1]**2) < 0.3
+    #     )
+    #     return (
+    #         base_reward
+    #         + 0.1 * np.mean(distances)
+    #         + 3.0 * np.exp(-10.0 * nearest_dist)
+    #         + agent_penalty
+    #     )
 
     def reset(self, seed=None, options=None):
         obs, infos = self.penv.reset()
@@ -182,7 +183,8 @@ class CoordinatedMultiAgentEnv(gym.Env):
 
         # Only shape reward if this agent still has an observation (not terminated)
         if self.agent_id in obs:
-            reward = self._shape_reward(self.agent_id, obs, rewards.get(self.agent_id, 0.0))
+            # reward = self._shape_reward(self.agent_id, obs, rewards.get(self.agent_id, 0.0))
+            reward = shape_reward(obs[self.agent_id], rewards.get(self.agent_id, 0.0))
         else:
             reward = rewards.get(self.agent_id, 0.0)
 

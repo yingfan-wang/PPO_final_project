@@ -1,20 +1,21 @@
 from pathlib import Path
 import numpy as np
+import torch
 from pettingzoo.mpe import simple_spread_v3
-from stable_baselines3 import PPO
-from train_joint_observation import JointObsAgentEnv
+from train_mappo import Actor
 
-# joint observation
 
 def watch(n_episodes=20):
-    run_dir  = Path("runs") / "joint_obs_spread"
-    agent_ids = [f"agent_{i}" for i in range(3)]
+    run_dir   = Path("runs") / "mappo_spread"
+    agent_ids = ["agent_0", "agent_1", "agent_2"]
 
-    models = {
-        a: PPO.load(str(run_dir / f"{a}_final"))
-        for a in agent_ids
-    }
-    print("Loaded joint obs models")
+    actors = {}
+    for a in agent_ids:
+        actor = Actor(obs_dim=18, action_dim=5)
+        actor.load_state_dict(torch.load(str(run_dir / f"{a}_actor.pt")))
+        actor.eval()
+        actors[a] = actor
+    print("Loaded MAPPO actors")
 
     env = simple_spread_v3.parallel_env(
         N=3,
@@ -31,21 +32,14 @@ def watch(n_episodes=20):
         obs, _ = env.reset()
         ep_reward = {a: 0.0 for a in agent_ids}
 
-        # Build joint obs for each agent: [own | other1 | other2]
-        def make_joint(agent_id, obs_dict):
-            parts = [obs_dict[agent_id]]
-            for a in agent_ids:
-                if a != agent_id:
-                    parts.append(obs_dict[a])
-            return np.concatenate(parts, dtype=np.float32)
-
         while env.agents:
-            actions = {
-                a: models[a].predict(
-                    make_joint(a, obs)[np.newaxis], deterministic=True
-                )[0][0]
-                for a in env.agents
-            }
+            actions = {}
+            for a in env.agents:
+                obs_t  = torch.FloatTensor(obs[a]).unsqueeze(0)
+                dist   = actors[a](obs_t)
+                action = dist.mean  # deterministic
+                actions[a] = action.squeeze(0).detach().numpy()
+
             obs, rewards, terminations, truncations, _ = env.step(actions)
             for a in agent_ids:
                 ep_reward[a] += rewards.get(a, 0.0)

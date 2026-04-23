@@ -7,6 +7,10 @@ from stable_baselines3.common.vec_env import VecMonitor
 
 from pettingzoo.utils import ParallelEnv
 import numpy as np
+from shaped_reward import shape_reward
+
+
+# Shared pol param (naive)
 
 class SpreadShapingWrapper(ParallelEnv):
     def __init__(self, env):
@@ -31,38 +35,41 @@ class SpreadShapingWrapper(ParallelEnv):
         if not self.env.agents:
             return obs, rewards, terminations, truncations, infos
 
+        # shaped_rewards = {}
+        # for agent in self.env.agents:
+        #     agent_obs = obs[agent]
+        #     N_landmarks = 3
+        #     landmark_positions = agent_obs[4:10]
+
+        #     distances = []
+        #     for i in range(N_landmarks):
+        #         dx = landmark_positions[2*i]
+        #         dy = landmark_positions[2*i + 1]
+        #         dist = np.sqrt(dx**2 + dy**2)
+        #         distances.append(dist)
+
+        #     nearest_dist = min(distances)
+
+        #     # Soft collision penalty — smooth falloff, not a flee incentive
+        #     other_agent_obs = agent_obs[10:14]
+        #     collision_penalty = 0.0
+        #     for i in range(2):
+        #         dx = other_agent_obs[2*i]
+        #         dy = other_agent_obs[2*i + 1]
+        #         dist = np.sqrt(dx**2 + dy**2)
+        #         if dist < 0.5:
+        #             collision_penalty -= 0.3 * (0.5 - dist) / 0.5
+
+        #     shaped_rewards[agent] = (
+        #         rewards[agent]
+        #         + (5.0 * np.exp(-10.0 * nearest_dist))   # strong pull to nearest landmark
+        #         - (0.5 * nearest_dist)                    # linear pull to nearest landmark
+        #         + collision_penalty                       # soft nudge only, not flee incentive
+        #         # removed: 0.1 * np.mean(distances)       # ← was rewarding spreading out
+        #     )
         shaped_rewards = {}
         for agent in self.env.agents:
-            agent_obs = obs[agent]
-            N_landmarks = 3
-            landmark_positions = agent_obs[4:10]
-
-            distances = []
-            for i in range(N_landmarks):
-                dx = landmark_positions[2*i]
-                dy = landmark_positions[2*i + 1]
-                dist = np.sqrt(dx**2 + dy**2)
-                distances.append(dist)
-
-            nearest_dist = min(distances)
-
-            # Soft collision penalty — smooth falloff, not a flee incentive
-            other_agent_obs = agent_obs[10:14]
-            collision_penalty = 0.0
-            for i in range(2):
-                dx = other_agent_obs[2*i]
-                dy = other_agent_obs[2*i + 1]
-                dist = np.sqrt(dx**2 + dy**2)
-                if dist < 0.5:
-                    collision_penalty -= 0.3 * (0.5 - dist) / 0.5
-
-            shaped_rewards[agent] = (
-                rewards[agent]
-                + (5.0 * np.exp(-10.0 * nearest_dist))   # strong pull to nearest landmark
-                - (0.5 * nearest_dist)                    # linear pull to nearest landmark
-                + collision_penalty                       # soft nudge only, not flee incentive
-                # removed: 0.1 * np.mean(distances)       # ← was rewarding spreading out
-            )
+            shaped_rewards[agent] = shape_reward(obs[agent], rewards[agent])
 
         return obs, shaped_rewards, terminations, truncations, infos
 

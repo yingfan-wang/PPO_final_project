@@ -7,8 +7,9 @@ import gymnasium as gym
 import shutil
 from stable_baselines3.common.callbacks import EvalCallback
 import random
+from shaped_reward import shape_reward
 
-
+# IPPO
 
 # ---------------------------------------------------------------------------
 # Reward shaping (shared logic)
@@ -17,34 +18,34 @@ import random
 # FIXED — cooperative shaping inspired by the TorchRL tutorial
 # Reward is based on covering landmarks, not avoiding teammates
 
-def shape_reward(agent_obs, base_reward):
-    landmark_positions = agent_obs[4:10]
-    distances = [
-        np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
-        for i in range(3)
-    ]
-    nearest_dist = min(distances)
+# def shape_reward(agent_obs, base_reward):
+#     landmark_positions = agent_obs[4:10]
+#     distances = [
+#         np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
+#         for i in range(3)
+#     ]
+#     nearest_dist = min(distances)
 
-    # Soft collision penalty — small enough to not override landmark-seeking
-    # Uses a smooth falloff instead of a hard threshold so agents are nudged
-    # away gently rather than incentivized to flee entirely
-    other_agent_obs = agent_obs[10:14]
-    collision_penalty = 0.0
-    for i in range(2):
-        dx = other_agent_obs[2*i]
-        dy = other_agent_obs[2*i + 1]
-        dist = np.sqrt(dx**2 + dy**2)
-        # Smooth penalty: only kicks in below 0.5, peaks at 0 distance
-        if dist < 0.5:
-            collision_penalty -= 0.3 * (0.5 - dist) / 0.5
+#     # Soft collision penalty — small enough to not override landmark-seeking
+#     # Uses a smooth falloff instead of a hard threshold so agents are nudged
+#     # away gently rather than incentivized to flee entirely
+#     other_agent_obs = agent_obs[10:14]
+#     collision_penalty = 0.0
+#     for i in range(2):
+#         dx = other_agent_obs[2*i]
+#         dy = other_agent_obs[2*i + 1]
+#         dist = np.sqrt(dx**2 + dy**2)
+#         # Smooth penalty: only kicks in below 0.5, peaks at 0 distance
+#         if dist < 0.5:
+#             collision_penalty -= 0.3 * (0.5 - dist) / 0.5
 
-    return (
-        base_reward                                  # env's team reward (covers all landmarks)
-        + 3.0 * np.exp(-10.0 * nearest_dist)        # strong pull toward nearest landmark
-        - 0.5 * nearest_dist                         # linear pull to nearest landmark
-        + collision_penalty                          # soft nudge, not a flee incentive
-        # removed: 0.1 * np.mean(distances) ← this was rewarding spreading out!
-    )
+#     return (
+#         base_reward                                  # env's team reward (covers all landmarks)
+#         + 3.0 * np.exp(-10.0 * nearest_dist)        # strong pull toward nearest landmark
+#         - 0.5 * nearest_dist                         # linear pull to nearest landmark
+#         + collision_penalty                          # soft nudge, not a flee incentive
+#         # removed: 0.1 * np.mean(distances) ← this was rewarding spreading out!
+#     )
 
 
 # ---------------------------------------------------------------------------

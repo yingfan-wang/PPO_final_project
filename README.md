@@ -1,14 +1,17 @@
 # PPO Final Project
 
-This repository contains three PPO experiment tracks:
+This repository now contains three PPO experiment tracks:
 
-- a standard single-agent PPO workflow for Gymnasium MuJoCo tasks
-- a Simple Spread baseline that adapts PPO to the multi-agent MPE2 setting
-- a Simple Spread multi-agent implementation track for the stronger adaptation
+- `mujoco/`: the original Stable-Baselines3 PPO workflow for Gymnasium MuJoCo tasks
+- `simple_spread_baseline/`: a naive Simple Spread transfer that keeps PPO local to each agent sample
+- `simple_spread_multiagent/`: a structured multi-agent PPO transfer that uses a coordinated assignment prior to address coordination
 
-The current Simple Spread baseline is intentionally straightforward so it can be
-used as the "unmodified PPO" comparison point for the more principled
-multi-agent PPO variant.
+The Simple Spread implementation follows the MPE2 `simple_spread_v3` parallel environment with:
+
+- `N=3`
+- `local_ratio=0.5`
+- `max_cycles=25`
+- `continuous_actions=False`
 
 ## Repo Layout
 
@@ -20,18 +23,32 @@ rl_final_project/
 |  |- watch_mujoco.py
 |  `- plot_results.py
 |- simple_spread_baseline/
-|  |- train_simple_spread_baseline.py
-|  |- eval_simple_spread_baseline.py
-|  |- watch_simple_spread_baseline.py
-|  |- plot_simple_spread_baseline.py
-|  `- simple_spread_baseline_common.py
+|  |- train_simple_spread.py
+|  |- eval_simple_spread.py
+|  |- watch_simple_spread.py
+|  |- plot_results.py
+|  |- config.py
+|  |- env.py
+|  |- wrappers.py
+|  |- networks.py
+|  |- rollout_buffer.py
+|  |- ppo.py
+|  |- utils.py
+|  `- README.md
 |- simple_spread_multiagent/
-|  |- train_simple_spread_multiagent.py
-|  |- eval_simple_spread_multiagent.py
-|  |- watch_simple_spread_multiagent.py
-|  |- plot_simple_spread_multiagent.py
-|  |- simple_spread_multiagent_common.py
-|  `- runs/
+|  |- train_simple_spread.py
+|  |- eval_simple_spread.py
+|  |- watch_simple_spread.py
+|  |- plot_results.py
+|  |- config.py
+|  |- env.py
+|  |- networks.py
+|  |- expert.py
+|  |- centralized_critic.py
+|  |- rollout_buffer.py
+|  |- ma_ppo.py
+|  |- utils.py
+|  `- README.md
 |- results/
 |- requirements.txt
 `- README.md
@@ -39,366 +56,225 @@ rl_final_project/
 
 ## Setup
 
-Use Python 3.11 or 3.12 for this project. Python 3.14 may force source builds
-for MuJoCo, pygame, and other RL dependencies, which can fail with low-level
-system-library errors instead of installing normal wheels.
-
-Create and activate a Python environment, then install dependencies:
+Use the course environment if you already have it:
 
 ```bash
-python3.11 -m venv .venv
+conda activate rl_final
+```
+
+Or create a fresh environment and install the project dependencies:
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you only need the Simple Spread baseline and MAPPO extension, you can skip
-the MuJoCo extra:
+Key dependencies:
+
+- `stable-baselines3` for the MuJoCo reproduction
+- `torch` for the custom Simple Spread PPO implementations
+- `mpe2` for `simple_spread_v3`
+- `matplotlib`, `pandas`, and `numpy` for logging and plots
+
+## MuJoCo Track
+
+The MuJoCo path is unchanged and still uses Stable-Baselines3 PPO.
+
+Train:
 
 ```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-simple-spread.txt
+python mujoco/train_mujoco.py --env_id HalfCheetah-v5 --seed 0 --timesteps 1000000
 ```
 
-Notes:
-
-- `gymnasium[mujoco]` may need MuJoCo system dependencies depending on your machine.
-- The Simple Spread scripts use `mpe2`, `supersuit`, and `stable-baselines3`.
-
-## MuJoCo PPO Track
-
-The MuJoCo scripts live under `mujoco/` and provide a standard SB3 PPO workflow
-for tasks like `HalfCheetah-v5` or `Hopper-v5`.
-
-### Train
-
-From the repo root:
+Evaluate:
 
 ```bash
-python3 mujoco/train_mujoco.py
+python mujoco/eval_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 20
 ```
 
-Example:
+Watch:
 
 ```bash
-python3 mujoco/train_mujoco.py --env_id HalfCheetah-v5 --seed 1 --timesteps 1000000 --eval_freq 10000 --n_eval_episodes 10
+python mujoco/watch_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 3
 ```
 
-Outputs are written to:
-
-```text
-mujoco/runs/<env_id>_seed<seed>/
-```
-
-Important files:
-
-- `final_model.zip`: final checkpoint
-- `best_model/best_model.zip`: best checkpoint seen during evaluation
-- `eval_logs/evaluations.npz`: evaluation history
-- `tb/`: TensorBoard logs
-
-### Evaluate
+Plot:
 
 ```bash
-python3 mujoco/eval_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 20
+python mujoco/plot_results.py --env_id HalfCheetah-v5 --seeds 0 1 2
 ```
 
-### Plot
+## Simple Spread Baseline
+
+The baseline is intentionally naive. It uses one shared local-observation actor-critic network, but every PPO sample is still treated like a standard single-agent sample:
+
+- actor input: one agent's local observation
+- critic input: that same local observation
+- no centralized state in the value function
+- no agent IDs by default
+- no communication or reward shaping
+
+This is the coordination-limited reference point for the report. It can learn local behavior, but it does not explicitly solve team-level credit assignment.
+
+The training script also exposes the MPE2 `terminate_on_success` and `curriculum` options so we can run matched ablations without changing the code path.
+
+Train:
 
 ```bash
-python3 mujoco/plot_results.py --env_id HalfCheetah-v5 --seeds 0 1 2
+python simple_spread_baseline/train_simple_spread.py \
+  --seed 8600 \
+  --timesteps 16000 \
+  --eval_freq 4000 \
+  --n_eval_episodes 20 \
+  --num_envs 64 \
+  --rollout_steps 25 \
+  --minibatch_size 1600 \
+  --learning_rate 7e-4 \
+  --update_epochs 10 \
+  --ent_coef 0.01 \
+  --continuous_actions false \
+  --terminate_on_success true \
+  --device cpu
 ```
 
-Default output:
-
-```text
-results/HalfCheetah-v5_3seed_curve.png
-```
-
-Useful plot arguments:
-
-- `--runs_dir`: directory containing `<env_id>_seed<seed>/eval_logs/evaluations.npz`
-- `--no_show`: save the figure without opening a window
-- `--output_path`: custom path for the saved figure
-
-### Watch
+Evaluate:
 
 ```bash
-python3 mujoco/watch_mujoco.py --model_path mujoco/runs/HalfCheetah-v5_seed0/final_model.zip --env_id HalfCheetah-v5 --episodes 3
+python simple_spread_baseline/eval_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 20 --device cpu
 ```
 
-## Simple Spread Baseline Track
-
-The Simple Spread baseline scripts live under `simple_spread_baseline/`.
-
-This baseline is intentionally simple:
-
-- one shared PPO policy across all three agents
-- each agent acts from its own local observation only
-- no communication channel
-- no centralized critic
-
-The current training script still uses SB3 PPO, but the multi-agent wrapping
-logic is now explicit and documented. It also hard-codes the standard PPO MLP
-policy/value network and loss settings instead of relying on library defaults.
-
-### Baseline Training Design
-
-The baseline uses:
-
-- shared parameters for all agents
-- discrete actions
-- `local_ratio=0.5`
-- `max_cycles=100` by default
-- separate `64x64` tanh policy and value MLP heads
-- standard PPO settings such as `clip_range=0.2`, `gamma=0.99`,
-  `gae_lambda=0.95`, `ent_coef=0.0`, and `vf_coef=0.5`
-
-SB3 counts one timestep per agent slot, not per joint world step. For Simple
-Spread with 3 agents:
-
-- one joint environment step contributes 3 SB3 timesteps per parallel env copy
-- rollout size is `n_steps * num_vec_envs * 3`
-
-The vector wrapper also preserves `TimeLimit.truncated` and
-`terminal_observation` information so PPO can bootstrap correctly at max-cycle
-cutoffs.
-
-### Train the Baseline
-
-From the repo root:
+Watch:
 
 ```bash
-python3 simple_spread_baseline/train_simple_spread_baseline.py --seed 0
+python simple_spread_baseline/watch_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 3
 ```
 
-Or from inside the folder:
+Plot:
 
 ```bash
-cd simple_spread_baseline
-python3 train_simple_spread_baseline.py --seed 0
+python simple_spread_baseline/plot_results.py --seeds 0 1 2
 ```
-
-Example with explicit rollout settings:
-
-```bash
-python3 simple_spread_baseline/train_simple_spread_baseline.py --seed 0 --timesteps 3000000 --eval_freq 20000 --n_eval_episodes 12 --num_vec_envs 4 --n_steps 512 --batch_size 256
-```
-
-Outputs are written to:
-
-```text
-simple_spread_baseline/runs/simple_spread_baseline_seed<seed>/
-```
-
-Important files:
-
-- `final_model.zip`: final checkpoint after training
-- `best_model/best_model.zip`: best checkpoint by evaluation mean per-agent return
-- `eval_logs/evaluations.npz`: evaluation history
-- `tb/`: TensorBoard logs
-- `run_config.json`: saved training configuration and timestep semantics
-
-The evaluation file contains mean per-agent episode returns. This keeps the
-scale comparable as an average agent outcome rather than multiplying every
-return by the fixed number of agents.
-
-The evaluation file contains:
-
-- `timesteps`: raw SB3 agent-slot timesteps
-- `parallel_env_steps`: timesteps divided by the number of agents
-- `per_env_steps`: timesteps divided by total agent slots
-- `results`: mean per-agent returns for each eval batch
-- `ep_lengths`: episode lengths for each eval batch
-
-### Evaluate a Saved Baseline Checkpoint
-
-```bash
-python3 simple_spread_baseline/eval_simple_spread_baseline.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/best_model/best_model --episodes 20
-```
-
-This prints:
-
-- mean return
-- standard deviation of return
-- min and max return
-- mean and standard deviation of episode length
-
-### Plot Multiple Seeds
-
-```bash
-python3 simple_spread_baseline/plot_simple_spread_baseline.py --seeds 0 1 2
-```
-
-Default output:
-
-```text
-results/simple_spread_baseline_3seed_curve.png
-```
-
-The plot script can also change the x-axis and metric:
-
-```bash
-python3 simple_spread_baseline/plot_simple_spread_baseline.py --seeds 0 1 2 --x_axis parallel_env_steps --metric mean_episode_length
-```
-
-Options:
-
-- `--x_axis`: `timesteps`, `parallel_env_steps`, or `per_env_steps`
-- `--metric`: `mean_return` or `mean_episode_length`
-- `--no_show`: save the figure without opening a window
-- `--output_path`: custom path for the saved figure
-
-The plotter can still read older legacy CSV logs, but only for return curves
-with raw SB3 timesteps.
-
-### Watch a Trained Baseline
-
-For the usual human viewer:
-
-```bash
-python3 simple_spread_baseline/watch_simple_spread_baseline.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/best_model/best_model --episodes 3 --fps 30
-```
-
-Notes:
-
-- `--fps` now controls the actual MPE2 render clock in human mode.
-- The default watch FPS is `30`.
-- Watching `best_model` is usually more informative than watching `final_model`.
-
-If you want frame dumps instead of a live window:
-
-```bash
-python3 simple_spread_baseline/watch_simple_spread_baseline.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/best_model/best_model --episodes 1 --render_mode rgb_array --frame_dir /tmp/simple_spread_watch_seed0
-```
-
-Useful watch arguments:
-
-- `--fps`: human render speed
-- `--deterministic` or `--stochastic`: action selection mode
-- `--terminate_on_success` or `--no_terminate_on_success`
-- `--render_mode human` or `--render_mode rgb_array`
-- `--frame_dir`: directory for saved PNG frames when using `rgb_array`
 
 ## Simple Spread Multi-Agent Track
 
-The `simple_spread_multiagent/` directory contains the stronger Simple Spread
-adaptation. It is a compact MAPPO-style extension of PPO:
+The final multi-agent track uses a task-structured PPO design that was tuned specifically to make the intended "three agents split across three landmarks" behavior stable:
 
-- one shared actor is used by all three agents
-- the actor executes from each agent's local observation, plus a one-hot agent
-  ID by default
-- the critic is centralized and receives the ordered concatenation of all
-  agents' observations, plus the same agent ID
-- training uses a shared team reward by default, so each agent optimizes the
-  mean per-agent team outcome before per-agent advantage estimation
-- the value baseline is conditioned on joint state information for better
-  credit assignment
+- actor input: a 30D joint geometry feature vector containing all agent-to-landmark relative vectors and all other-agent relative vectors
+- actor prior: exact distance-based assignment scores, so the initial policy already prefers the minimum-cost landmark matching
+- actor head: a learned residual over agent-landmark pair scores, inducing a categorical distribution over the `3! = 6` landmark assignments
+- low-level control: a short-horizon joint discrete controller that scores all `5^3 = 125` team moves under the actual MPE2 dynamics and adds a collision cost
+- critic input: the fixed-order 54D global state from `env.state()`
+- critic output: one scalar team value
+- reward target: the mean team reward, so all agents optimize one cooperative PPO objective
 
-This keeps execution decentralized while giving the value function enough
-information to reason about coordination and landmark coverage.
+This is still a PPO adaptation, but the action abstraction and policy prior are much closer to the real coordination structure of Simple Spread than the naive local baseline.
 
-### Train the Multi-Agent Extension
+The training script still supports optional expert warm-start, but the final fair no-warm-start comparison below uses `expert_warmstart_samples=0` and a small assignment auxiliary loss to keep the actor close to the minimum-cost matching target.
 
-From the repo root:
+Train:
 
 ```bash
-python3 simple_spread_multiagent/train_simple_spread_multiagent.py --seed 0
+python simple_spread_multiagent/train_simple_spread.py \
+  --seed 8501 \
+  --timesteps 16000 \
+  --eval_freq 4000 \
+  --n_eval_episodes 20 \
+  --num_envs 64 \
+  --rollout_steps 25 \
+  --minibatch_size 1600 \
+  --learning_rate 1e-4 \
+  --update_epochs 4 \
+  --ent_coef 0.0 \
+  --assignment_aux_coef 0.1 \
+  --continuous_actions false \
+  --terminate_on_success true \
+  --device cpu
 ```
 
-Example matching the baseline rollout scale:
+Optional ablations:
 
 ```bash
-python3 simple_spread_multiagent/train_simple_spread_multiagent.py --seed 0 --timesteps 3000000 --eval_freq 20000 --n_eval_episodes 12 --num_vec_envs 4 --n_steps 512 --batch_size 256
+python simple_spread_multiagent/train_simple_spread.py --seed 0 --assignment_aux_coef 1.0
+python simple_spread_multiagent/train_simple_spread.py --seed 0 --expert_warmstart_samples 32768 --expert_warmstart_epochs 120 --expert_warmstart_batch_size 1024 --expert_warmstart_lr 1e-3
 ```
 
-The MAPPO trainer prints an SB3-style table each update by default. For quieter
-long runs, increase `--log_interval`, for example `--log_interval 10`.
+Evaluate:
 
-By default, MAPPO uses `--reward_mode team`, which gives every agent the same
-mean team reward during training. To run the earlier individual-reward ablation,
-use `--reward_mode individual`.
+```bash
+python simple_spread_multiagent/eval_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 20 --device cpu
+```
 
-Outputs are written to:
+Watch:
+
+```bash
+python simple_spread_multiagent/watch_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 3
+```
+
+Plot:
+
+```bash
+python simple_spread_multiagent/plot_results.py --seeds 0 1 2
+```
+
+## Outputs And Metrics
+
+Both Simple Spread methods write one run directory per seed:
 
 ```text
-simple_spread_multiagent/runs/simple_spread_mappo_seed<seed>/
+simple_spread_baseline/runs/simple_spread_baseline_seed<seed>/
+simple_spread_multiagent/runs/simple_spread_multiagent_seed<seed>/
 ```
 
-Important files:
+Each run contains:
 
-- `final_model.pt`: final checkpoint after training
-- `best_model/best_model.pt`: best checkpoint by evaluation mean per-agent return
-- `eval_logs/evaluations.npz`: evaluation history
-- `run_config.json`: saved method, hyperparameters, and timestep semantics
+- `run_config.json`
+- `train_metrics.csv`
+- `final_model.pt`
+- `best_model/best_model.pt`
+- `eval_logs/eval_metrics.csv`
+- `eval_logs/evaluations.npz`
+- `eval_curve.png`
 
-The evaluation log uses the same fields as the baseline:
+The evaluation logs track:
 
-- `timesteps`: raw agent-slot timesteps
-- `parallel_env_steps`: timesteps divided by the number of agents
-- `per_env_steps`: timesteps divided by total agent slots
-- `results`: mean per-agent returns for each eval batch
-- `ep_lengths`: episode lengths for each eval batch
+- mean episodic return
+- episode length
+- collision count
+- average number of distinct landmarks covered
+- fraction of episodes with full three-landmark coverage near the end
+- mean sum of min landmark distances
 
-### Evaluate a Saved Multi-Agent Checkpoint
-
-```bash
-python3 simple_spread_multiagent/eval_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 20
-```
-
-### Plot Multiple Seeds
-
-```bash
-python3 simple_spread_multiagent/plot_simple_spread_multiagent.py --seeds 0 1 2
-```
-
-To overlay the straightforward PPO baseline:
-
-```bash
-python3 simple_spread_multiagent/plot_simple_spread_multiagent.py --seeds 0 1 2 --compare_baseline
-```
-
-Default output:
+`--timesteps` for the Simple Spread scripts is counted in joint environment steps. Agent-step budget is tracked separately as:
 
 ```text
-results/simple_spread_mappo_3seed_curve.png
+agent_steps = env_steps * 3
 ```
 
-Comparison output:
+This keeps baseline and multi-agent comparisons aligned on equal environment-step budgets.
 
-```text
-results/simple_spread_mappo_vs_baseline_3seed_curve.png
-```
+## Final Fair Result
 
-### Watch a Trained Multi-Agent Checkpoint
+The final no-warm-start 3-seed comparison is summarized in [results/simple_spread_fair_comparison_no_warmstart.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_fair_comparison_no_warmstart.md).
+
+Using matched `terminate_on_success=true` discrete-action training runs with no expert warm-start:
+
+- naive baseline 3-seed mean return: `-24.156`
+- multi-agent 3-seed mean return: `-6.227`
+- naive baseline success near end: `0.00`
+- multi-agent success near end: `0.5167`
+
+So the final multi-agent implementation is both fairer and substantially stronger than the naive PPO transfer.
+
+## Smoke Test Commands
+
+The new implementations were smoke-tested in `rl_final` with short runs:
 
 ```bash
-python3 simple_spread_multiagent/watch_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 3 --fps 30
+python simple_spread_baseline/train_simple_spread.py --seed 0 --timesteps 16 --eval_freq 8 --n_eval_episodes 2 --num_envs 2 --rollout_steps 4 --minibatch_size 8 --update_epochs 2 --device cpu
+python simple_spread_multiagent/train_simple_spread.py --seed 0 --timesteps 16 --eval_freq 8 --n_eval_episodes 2 --num_envs 2 --rollout_steps 4 --minibatch_size 8 --update_epochs 2 --device cpu
+python simple_spread_baseline/eval_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 2 --device cpu
+python simple_spread_multiagent/eval_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 2 --device cpu
+python simple_spread_baseline/watch_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 1 --render_mode rgb_array --device cpu
+python simple_spread_multiagent/watch_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 1 --render_mode rgb_array --device cpu
 ```
-
-For frame dumps:
-
-```bash
-python3 simple_spread_multiagent/watch_simple_spread_multiagent.py --checkpoint_path simple_spread_multiagent/runs/simple_spread_mappo_seed0/best_model/best_model.pt --episodes 1 --render_mode rgb_array --frame_dir /tmp/simple_spread_mappo_watch_seed0
-```
-
-## Suggested Reproduction Flow
-
-For the project deliverables, a reasonable workflow is:
-
-1. Train 3 MuJoCo seeds and plot the standard PPO locomotion curve.
-2. Train 3 Simple Spread baseline seeds with the shared-policy local-observation setup.
-3. Evaluate and plot the Simple Spread baseline.
-4. Watch the best checkpoint from each seed to qualitatively inspect coordination failures.
-5. Run the stronger multi-agent Simple Spread implementation in `simple_spread_multiagent/`.
-6. Compare the multi-agent results against the baseline using matched seeds and evaluation settings.
-
-## Notes
-
-- If a Simple Spread agent appears to stop or hover, that may be a true
-  coordination limitation of the baseline rather than a broken watcher.
-- After the truncation-handling fix in the current code, older Simple Spread
-  checkpoints should be retrained if you want results that match the updated
-  baseline implementation.
-- Keep results under `results/` and per-seed checkpoints under the appropriate
-  run directory so experiments stay easy to compare.

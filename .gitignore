@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.venv/
 
 # training outputs
 mujoco/runs/
@@ -18,3 +19,7 @@ events.out.tfevents.*
 
 # local plotting/render caches
 .mplconfig/
+
+# throwaway experiment artifacts
+results/test_*.png
+simple_spread_multiagent/sweep_results.csv

@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 from pettingzoo.mpe import simple_spread_v3
 from stable_baselines3 import PPO
-from train_simple_spread_multiagent_copy import shape_reward
+from train_shared_pol_param import shape_reward
 
 
 

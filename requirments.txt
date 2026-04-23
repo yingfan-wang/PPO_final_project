@@ -1,0 +1,8 @@
+gymnasium[mujoco]
+stable-baselines3
+tensorboard
+pandas
+matplotlib
+numpy
+pettingzoo[mpe]
+supersuit

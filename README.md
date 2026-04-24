@@ -5,7 +5,7 @@ This repository contains four PPO experiment tracks:
 - `mujoco/`: the original Stable-Baselines3 PPO workflow for Gymnasium MuJoCo tasks
 - `simple_spread_baseline/`: a naive Simple Spread transfer where each agent independently picks a landmark target and a local controller turns that target into a move
 - `simple_spread_pure_mappo/`: a direct primitive-action decentralized-actor centralized-critic PPO baseline without the structured controller
-- `simple_spread_multiagent/`: the final structured multi-agent PPO method with coordinated landmark assignment
+- `simple_spread_multiagent_MAPPO/`: the final structured multi-agent PPO method with coordinated landmark assignment
 
 For Simple Spread, the final code lives in those three folders above. The separate
 `simple_spread_multiagent_implementations/` directory is a legacy sandbox with older
@@ -27,7 +27,7 @@ rl_final_project/
 |- mujoco/                               # SB3 PPO reproduction
 |- simple_spread_baseline/              # naive local-observation PPO transfer
 |- simple_spread_pure_mappo/            # primitive-action MAPPO baseline
-|- simple_spread_multiagent/            # structured coordinated PPO
+|- simple_spread_multiagent_MAPPO/      # structured coordinated PPO
 |- simple_spread_multiagent_implementations/  # older Simple Spread experiments
 |- runs/                                # shared/legacy exported run artifacts
 `- results/                             # plots, summaries, reports, animations
@@ -236,7 +236,7 @@ The training script still supports optional expert warm-start, but the final fai
 Train:
 
 ```bash
-python simple_spread_multiagent/train_simple_spread.py \
+python simple_spread_multiagent_MAPPO/train_simple_spread.py \
   --seed 8501 \
   --timesteps 16000 \
   --eval_freq 4000 \
@@ -256,26 +256,26 @@ python simple_spread_multiagent/train_simple_spread.py \
 Optional ablations:
 
 ```bash
-python simple_spread_multiagent/train_simple_spread.py --seed 0 --assignment_aux_coef 1.0
-python simple_spread_multiagent/train_simple_spread.py --seed 0 --expert_warmstart_samples 32768 --expert_warmstart_epochs 120 --expert_warmstart_batch_size 1024 --expert_warmstart_lr 1e-3
+python simple_spread_multiagent_MAPPO/train_simple_spread.py --seed 0 --assignment_aux_coef 1.0
+python simple_spread_multiagent_MAPPO/train_simple_spread.py --seed 0 --expert_warmstart_samples 32768 --expert_warmstart_epochs 120 --expert_warmstart_batch_size 1024 --expert_warmstart_lr 1e-3
 ```
 
 Evaluate:
 
 ```bash
-python simple_spread_multiagent/eval_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 20 --device cpu
+python simple_spread_multiagent_MAPPO/eval_simple_spread.py --model_path simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 20 --device cpu
 ```
 
 Watch:
 
 ```bash
-python simple_spread_multiagent/watch_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 3
+python simple_spread_multiagent_MAPPO/watch_simple_spread.py --model_path simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 3
 ```
 
 Plot:
 
 ```bash
-python simple_spread_multiagent/plot_results.py --seeds 0 1 2
+python simple_spread_multiagent_MAPPO/plot_results.py --seeds 0 1 2
 ```
 
 ## Outputs And Metrics
@@ -292,7 +292,7 @@ Per-seed training directories live at:
 ```text
 simple_spread_baseline/runs/simple_spread_baseline_seed<seed>/
 simple_spread_pure_mappo/runs/simple_spread_pure_mappo_seed<seed>/
-simple_spread_multiagent/runs/simple_spread_multiagent_seed<seed>/
+simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed<seed>/
 ```
 
 Each run contains:
@@ -341,9 +341,9 @@ The new implementations were smoke-tested in `rl_final` with short runs:
 
 ```bash
 python simple_spread_baseline/train_simple_spread.py --seed 0 --timesteps 16 --eval_freq 8 --n_eval_episodes 2 --num_envs 2 --rollout_steps 4 --minibatch_size 8 --update_epochs 2 --device cpu
-python simple_spread_multiagent/train_simple_spread.py --seed 0 --timesteps 16 --eval_freq 8 --n_eval_episodes 2 --num_envs 2 --rollout_steps 4 --minibatch_size 8 --update_epochs 2 --device cpu
+python simple_spread_multiagent_MAPPO/train_simple_spread.py --seed 0 --timesteps 16 --eval_freq 8 --n_eval_episodes 2 --num_envs 2 --rollout_steps 4 --minibatch_size 8 --update_epochs 2 --device cpu
 python simple_spread_baseline/eval_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 2 --device cpu
-python simple_spread_multiagent/eval_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 2 --device cpu
+python simple_spread_multiagent_MAPPO/eval_simple_spread.py --model_path simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 2 --device cpu
 python simple_spread_baseline/watch_simple_spread.py --model_path simple_spread_baseline/runs/simple_spread_baseline_seed0/final_model.pt --episodes 1 --render_mode rgb_array --device cpu
-python simple_spread_multiagent/watch_simple_spread.py --model_path simple_spread_multiagent/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 1 --render_mode rgb_array --device cpu
+python simple_spread_multiagent_MAPPO/watch_simple_spread.py --model_path simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed0/final_model.pt --episodes 1 --render_mode rgb_array --device cpu
 ```

@@ -32,9 +32,9 @@ All implementations use a shared reward shaping function (shaped_reward.py):
 
 ```python
 def shape_reward(agent_obs, base_reward):
-    return base_reward + \
-           3.0 * exp(-10.0 * nearest_dist) - \
-           0.5 * nearest_dist + \
+    return base_reward + 
+           3.0 * exp(-10.0 * nearest_dist) - 
+           0.5 * nearest_dist + 
            collision_penalty
 ```
 ---
@@ -56,6 +56,7 @@ Note: the +0.1 * mean(distances) term was removed because it encouraged spreadin
 
 ### Shared Hyperparameters
 
+``` python
 HYPERPARAMS = {
     learning_rate: 3e-4,
     n_steps: 512,
@@ -68,6 +69,7 @@ HYPERPARAMS = {
     vf_coef: 0.5,
     max_grad_norm: 0.5,
 }
+```
 
 ---
 
@@ -75,11 +77,11 @@ HYPERPARAMS = {
 
 Script → Purpose
 
-train_all.py → runs all training pipelines  
-plot_results.py → compares training curves  
-test_and_plot.py → evaluates final models  
-generate_gifs.py → creates animations  
-shaped_reward.py → reward + hyperparameters  
+```train_all.py``` → runs all training pipelines  
+```plot_results.py``` → compares training curves  
+```test_and_plot.py``` → evaluates final models  
+```generate_gifs.py``` → creates animations  
+```shaped_reward.py``` → reward + hyperparameters  
 
 Visualization:
 watch_shared.py  
@@ -91,6 +93,7 @@ watch_mappo.py
 
 ## Directory Structure
 
+```
 PPO_final_project/
 ├── runs/
 │   ├── simple_spread/
@@ -103,6 +106,7 @@ PPO_final_project/
 ├── results.pdf
 ├── test_results.pdf
 └── simple_spread_multiagent_implementations/
+```
 
 ---
 
@@ -118,26 +122,26 @@ PPO_final_project/
 ## Usage
 
 Train all models:
-```python 
-train_all.py
+```
+python train_all.py
 ```
 
 Plot results:
-```python 
-plot_results.py
+```
+python plot_results.py
 ```
 
 Evaluate models:
-```python 
-test_and_plot.py
+```
+python test_and_plot.py
 ```
 
 Generate GIFs:
-```python 
-generate_gifs.py
+```
+python generate_gifs.py
 ```
 
 Run visualization:
-```python 
-watch_shared.py
+``` 
+python watch_shared.py
 ```

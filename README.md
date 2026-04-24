@@ -1,12 +1,17 @@
 # PPO Final Project
 
-This repository now contains three PPO experiment tracks:
+This repository contains four PPO experiment tracks:
 
 - `mujoco/`: the original Stable-Baselines3 PPO workflow for Gymnasium MuJoCo tasks
-- `simple_spread_baseline/`: a naive Simple Spread transfer where each agent independently picks a landmark target with PPO and a simple local controller converts that target into a move
-- `simple_spread_multiagent/`: a structured multi-agent PPO transfer that uses a coordinated assignment prior to address coordination
+- `simple_spread_baseline/`: a naive Simple Spread transfer where each agent independently picks a landmark target and a local controller turns that target into a move
+- `simple_spread_pure_mappo/`: a direct primitive-action decentralized-actor centralized-critic PPO baseline without the structured controller
+- `simple_spread_multiagent/`: the final structured multi-agent PPO method with coordinated landmark assignment
 
-The Simple Spread implementation follows the MPE2 `simple_spread_v3` parallel environment with:
+For Simple Spread, the final code lives in those three folders above. The separate
+`simple_spread_multiagent_implementations/` directory is a legacy sandbox with older
+experiments and is not part of the final training pipeline.
+
+All Simple Spread variants use the MPE2 `simple_spread_v3` parallel environment with:
 
 - `N=3`
 - `local_ratio=0.5`
@@ -17,37 +22,37 @@ The Simple Spread implementation follows the MPE2 `simple_spread_v3` parallel en
 
 ```text
 rl_final_project/
-|- mujoco/
-|  |- train_mujoco.py
-|  |- eval_mujoco.py
-|  |- watch_mujoco.py
-|  `- plot_results.py
-|- simple_spread_baseline/
-|  |- train_simple_spread.py
-|  |- eval_simple_spread.py
-|  |- watch_simple_spread.py
-|  |- plot_results.py
-|  |- config.py
-|  |- env.py
-|  |- networks.py
-|  |- ppo.py
-|  |- utils.py
-|  `- README.md
-|- simple_spread_multiagent/
-|  |- train_simple_spread.py
-|  |- eval_simple_spread.py
-|  |- watch_simple_spread.py
-|  |- plot_results.py
-|  |- config.py
-|  |- env.py
-|  |- networks.py
-|  |- expert.py
-|  |- ma_ppo.py
-|  `- README.md
-|- results/
+|- README.md
 |- requirements.txt
-`- README.md
+|- mujoco/                               # SB3 PPO reproduction
+|- simple_spread_baseline/              # naive local-observation PPO transfer
+|- simple_spread_pure_mappo/            # primitive-action MAPPO baseline
+|- simple_spread_multiagent/            # structured coordinated PPO
+|- simple_spread_multiagent_implementations/  # older Simple Spread experiments
+|- runs/                                # shared/legacy exported run artifacts
+`- results/                             # plots, summaries, reports, animations
 ```
+
+## How To Read The Simple Spread Folders
+
+The three final Simple Spread packages intentionally follow the same shape:
+
+- entry scripts: `train_simple_spread.py`, `eval_simple_spread.py`, `watch_simple_spread.py`, and `plot_results.py`
+- environment/config layer: `config.py` and `env.py`
+- model layer: `networks.py` plus `ppo.py` or `ma_ppo.py`
+- package-specific helpers: `utils.py` in the baseline and `expert.py` in the structured multi-agent method
+- local notes: each folder has its own `README.md`
+
+If you are reviewing source code, the fastest path is:
+
+1. `config.py` for the track-level defaults and dimensions.
+2. `env.py` for observations, actions, and any controller or feature construction.
+3. `ppo.py` or `ma_ppo.py` for the actual policy update logic.
+4. `train_simple_spread.py` for the end-to-end experiment flow.
+
+Some Simple Spread folders also contain generated artifacts such as `runs/`,
+`animations/`, `.mplconfig/`, `__pycache__/`, and `.DS_Store`. Those are outputs or
+machine-local files, not part of the core implementation.
 
 ## Setup
 
@@ -151,6 +156,67 @@ Plot:
 python simple_spread_baseline/plot_results.py --seeds 0 1 2
 ```
 
+## Simple Spread Pure MAPPO
+
+This track is the closest thing in the repo to a textbook MAPPO-style
+comparison point: the actor outputs one primitive `Discrete(5)` action per
+agent directly from local observations, while the critic uses the full 54D
+global state.
+
+- actor input: one local observation per agent, optionally with a one-hot
+  agent ID
+- critic input: the full 54D global state, repeated per agent and optionally
+  augmented with a one-hot agent ID
+- policy output: one primitive environment action per agent
+- no assignment prior
+- no low-level controller
+- no hand-written action abstraction
+
+This makes it a useful ablation against the structured method: if pure MAPPO
+underperforms, then the gap can be attributed to the assignment abstraction and
+controller rather than to PPO alone.
+
+Train:
+
+```bash
+python simple_spread_pure_mappo/train_simple_spread.py \
+  --seed 0 \
+  --timesteps 16000 \
+  --eval_freq 4000 \
+  --n_eval_episodes 20 \
+  --num_envs 64 \
+  --rollout_steps 25 \
+  --minibatch_size 1600 \
+  --learning_rate 1e-4 \
+  --update_epochs 4 \
+  --ent_coef 0.0 \
+  --continuous_actions false \
+  --terminate_on_success true \
+  --use_agent_id true \
+  --device cpu
+```
+
+Evaluate:
+
+```bash
+python simple_spread_pure_mappo/eval_simple_spread.py --model_path simple_spread_pure_mappo/runs/simple_spread_pure_mappo_seed0/final_model.pt --episodes 20 --device cpu
+```
+
+Watch:
+
+```bash
+python simple_spread_pure_mappo/watch_simple_spread.py --model_path simple_spread_pure_mappo/runs/simple_spread_pure_mappo_seed0/final_model.pt --episodes 3 --device cpu
+```
+
+Plot:
+
+```bash
+python simple_spread_pure_mappo/plot_results.py --seeds 0 1 2
+```
+
+The current seed-0 structured-vs-pure comparison is summarized in
+[results/simple_spread/summaries/pure_mappo_vs_structured_seed0_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread/summaries/pure_mappo_vs_structured_seed0_summary.md).
+
 ## Simple Spread Multi-Agent Track
 
 The final multi-agent track uses a task-structured PPO design that was tuned specifically to make the intended "three agents split across three landmarks" behavior stable:
@@ -214,10 +280,18 @@ python simple_spread_multiagent/plot_results.py --seeds 0 1 2
 
 ## Outputs And Metrics
 
-Both Simple Spread methods write one run directory per seed:
+The Simple Spread code is organized so that source files stay in the package folders,
+while experiment outputs are easy to recognize separately:
+
+- per-track checkpoints and logs live under each package's `runs/` directory
+- shared comparison plots, summaries, reports, and animations live under `results/simple_spread/`
+- a few top-level `runs/` files exist for teammate-compatible exports and older shared artifacts
+
+Per-seed training directories live at:
 
 ```text
 simple_spread_baseline/runs/simple_spread_baseline_seed<seed>/
+simple_spread_pure_mappo/runs/simple_spread_pure_mappo_seed<seed>/
 simple_spread_multiagent/runs/simple_spread_multiagent_seed<seed>/
 ```
 
@@ -250,7 +324,7 @@ This keeps baseline and multi-agent comparisons aligned on equal environment-ste
 
 ## Final Fair Result
 
-The current 3-seed comparison is summarized in [results/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_seed012_summary.md).
+The current 3-seed comparison is summarized in [results/simple_spread/summaries/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread/summaries/simple_spread_seed012_summary.md).
 
 Using matched `terminate_on_success=true` discrete-action training runs:
 

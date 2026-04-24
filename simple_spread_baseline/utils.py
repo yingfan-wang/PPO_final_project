@@ -12,8 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent
 MPLCONFIG_DIR = BASE_DIR / ".mplconfig"
 MPLCONFIG_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(MPLCONFIG_DIR))
+os.environ.setdefault("MPLBACKEND", "Agg")
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -85,6 +85,12 @@ def plot_eval_curve(
     output_path: Path,
     title: str,
 ) -> None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        return
     env_steps = np.asarray(list(env_steps), dtype=np.float64)
     mean_returns = np.asarray(list(mean_returns), dtype=np.float64)
     if env_steps.size == 0:

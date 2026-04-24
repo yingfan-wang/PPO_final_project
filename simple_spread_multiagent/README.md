@@ -3,6 +3,29 @@
 This folder contains the final coordinated Simple Spread method used for the
 project report.
 
+## Folder Guide
+
+The folder is easiest to navigate if you separate the core training path from
+the reporting helpers:
+
+- `config.py`: structured-method hyperparameters
+- `env.py`: joint feature construction and controller-facing environment helpers
+- `networks.py`: assignment-policy network pieces
+- `ma_ppo.py`: centralized-critic PPO agent for the joint assignment policy
+- `expert.py`: exact-assignment targets and optional warm-start dataset generation
+- `train_simple_spread.py`: main training loop, evaluation schedule, and checkpoint writing
+- `eval_simple_spread.py`: checkpoint evaluation
+- `watch_simple_spread.py`: live rendering or saved rollout animations
+- `plot_results.py`: multi-seed aggregation and legacy NPZ export
+- `generate_side_by_side_gifs.py`: convenience reporting script for visual comparisons
+- `report_results_pdf.py`: PDF report generation from saved eval logs
+
+Generated artifacts to treat as outputs rather than source:
+
+- `runs/`: per-seed checkpoints and evaluation logs
+- `animations/`: optional rendered episodes
+- `.mplconfig/`, `__pycache__/`, `.DS_Store`: local cache files
+
 ## Final Design
 
 The final design is a structured multi-agent PPO transfer:
@@ -38,7 +61,8 @@ The current baseline-vs-multi-agent result is with:
 
 The latest 3-seed comparison is recorded in:
 
-- [results/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread_seed012_summary.md)
+- [results/simple_spread/summaries/simple_spread_seed012_summary.md](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread/summaries/simple_spread_seed012_summary.md)
+- [results/simple_spread/reports/simple_spread_multiagent_seed_report.pdf](/Users/Andrew/Desktop/CS%204260/Final%20Projects/rl_final_project/results/simple_spread/reports/simple_spread_multiagent_seed_report.pdf)
 
 Headline result:
 

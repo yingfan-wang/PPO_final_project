@@ -98,6 +98,11 @@ RUNS = [
         "color": "#00BCD4",
         "npz_list": ["runs/mappo_spread/eval_logs/evaluations.npz"],
     },
+    {
+        "label": "MAPPO + Controller",
+        "color": "#00796B",
+        "npz_list": ["runs/mappo_controller_spread/eval_logs/evaluations.npz"],
+    },
 ]
 
 SMOOTH_WINDOW = 5      # over eval checkpoints (not raw episodes)

@@ -8,18 +8,27 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 MPLCONFIG_DIR = SCRIPT_DIR / ".mplconfig"
 MPLCONFIG_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(MPLCONFIG_DIR))
+os.environ.setdefault("MPLBACKEND", "Agg")
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 ROOT_DIR = SCRIPT_DIR.parent
 DEFAULT_RUNS_DIR = SCRIPT_DIR / "runs"
-DEFAULT_RESULTS_DIR = ROOT_DIR / "results"
+DEFAULT_RESULTS_DIR = ROOT_DIR / "results" / "simple_spread" / "curves"
+DEFAULT_EXPORT_NPZ_PATH = ROOT_DIR / "runs" / "mappo_controller_spread" / "eval_logs" / "evaluations.npz"
+
+
+def load_npz(npz_path: Path) -> dict[str, np.ndarray]:
+    data = np.load(npz_path, allow_pickle=True)
+    return {key: data[key] for key in data.files}
 
 
 def load_evals(npz_path: Path) -> pd.DataFrame:
-    data = np.load(npz_path, allow_pickle=True)
+    data = load_npz(npz_path)
     return pd.DataFrame(
         {
             "env_steps": data["timesteps"],
@@ -28,11 +37,74 @@ def load_evals(npz_path: Path) -> pd.DataFrame:
     )
 
 
+def aggregate_seed_eval_logs(
+    npz_paths: list[Path],
+    seeds: list[int] | None = None,
+) -> dict[str, np.ndarray]:
+    if not npz_paths:
+        raise ValueError("Expected at least one evaluations.npz path to aggregate.")
+
+    payloads = [load_npz(path) for path in npz_paths]
+    reference_steps = payloads[0]["timesteps"]
+    for path, payload in zip(npz_paths[1:], payloads[1:]):
+        if not np.array_equal(payload["timesteps"], reference_steps):
+            raise ValueError(f"Mismatched timesteps in {path}")
+
+    if seeds is None:
+        seeds = list(range(len(npz_paths)))
+    if len(seeds) != len(npz_paths):
+        raise ValueError("Number of seeds must match number of evaluation files.")
+
+    aggregated: dict[str, np.ndarray] = {
+        "timesteps": reference_steps,
+        "env_steps": payloads[0].get("env_steps", reference_steps),
+        "agent_steps": payloads[0].get("agent_steps", reference_steps),
+        "results": np.concatenate([payload["results"] for payload in payloads], axis=1),
+        "ep_lengths": np.concatenate([payload["ep_lengths"] for payload in payloads], axis=1),
+        "seeds": np.asarray(seeds, dtype=np.int64),
+        "seed_mean_returns": np.stack(
+            [payload["results"].mean(axis=1) for payload in payloads],
+            axis=1,
+        ),
+    }
+
+    for metric in [
+        "collision_counts",
+        "avg_landmarks_covered",
+        "success_near_end",
+        "mean_sum_min_dists",
+    ]:
+        if all(metric in payload for payload in payloads):
+            aggregated[metric] = np.concatenate(
+                [payload[metric] for payload in payloads],
+                axis=1,
+            )
+
+    return aggregated
+
+
+def save_aggregated_eval_npz(
+    npz_paths: list[Path],
+    output_path: Path,
+    seeds: list[int] | None = None,
+) -> Path:
+    aggregated = aggregate_seed_eval_logs(npz_paths, seeds=seeds)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(output_path, **aggregated)
+    return output_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--runs_dir", type=str, default=str(DEFAULT_RUNS_DIR))
     parser.add_argument("--output_path", type=str, default=None)
+    parser.add_argument(
+        "--export_legacy_npz_path",
+        type=str,
+        default=str(DEFAULT_EXPORT_NPZ_PATH),
+        help="Optional path for a teammate-compatible aggregated evaluations.npz export.",
+    )
     parser.add_argument("--no_show", action="store_true")
     args = parser.parse_args()
 
@@ -41,6 +113,7 @@ def main() -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
 
     frames = []
+    npz_paths = []
     for seed in args.seeds:
         npz_path = (
             runs_dir
@@ -50,6 +123,7 @@ def main() -> None:
         )
         if not npz_path.exists():
             raise FileNotFoundError(f"Missing file: {npz_path}")
+        npz_paths.append(npz_path)
         frame = load_evals(npz_path)
         frame["seed"] = seed
         frames.append(frame)
@@ -86,8 +160,18 @@ def main() -> None:
         plt.show()
     plt.close()
 
+    export_path = None
+    if args.export_legacy_npz_path:
+        export_path = save_aggregated_eval_npz(
+            npz_paths=npz_paths,
+            output_path=Path(args.export_legacy_npz_path).expanduser(),
+            seeds=args.seeds,
+        )
+
     final_row = pivot.iloc[-1]
     print(f"Saved figure to: {save_path}")
+    if export_path is not None:
+        print(f"Saved aggregated eval NPZ to: {export_path}")
     print("\nFinal evaluation summary:")
     print(final_row)
     print(f"\nFinal mean: {final_row.mean():.2f}")

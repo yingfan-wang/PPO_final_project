@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--terminate_on_success", type=str2bool, default=None)
     parser.add_argument("--render_mode", type=str, default="human")
     parser.add_argument("--save_dir", type=str, default=None)
-    parser.add_argument("--output_format", type=str, default="webp")
+    parser.add_argument("--output_format", type=str, default="gif")
     parser.add_argument("--fps", type=int, default=6)
     parser.add_argument("--hold_last_seconds", type=float, default=2.0)
     parser.add_argument("--pad_to_max_cycles", type=str2bool, default=True)

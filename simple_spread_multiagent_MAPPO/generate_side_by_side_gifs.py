@@ -13,7 +13,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from simple_spread_baseline.ppo import PPOAgent
 from simple_spread_baseline.utils import record_policy_episode_frames, save_animation
-from simple_spread_multiagent.ma_ppo import MAPPOAgent
+from simple_spread_multiagent_MAPPO.ma_ppo import MAPPOAgent
 
 RESULTS_DIR = ROOT_DIR / "results" / "simple_spread" / "animations"
 
@@ -72,7 +72,7 @@ def load_agents(device: str) -> tuple[PPOAgent, MAPPOAgent]:
     )
     multiagent = MAPPOAgent.load(
         ROOT_DIR
-        / "simple_spread_multiagent"
+        / "simple_spread_multiagent_MAPPO"
         / "runs"
         / "simple_spread_multiagent_seed0"
         / "final_model.pt",
@@ -81,12 +81,13 @@ def load_agents(device: str) -> tuple[PPOAgent, MAPPOAgent]:
     return baseline, multiagent
 
 
-def checkpoint_path(track: str, seed: int) -> Path:
+def checkpoint_path(track_dir: str, seed: int, *, run_prefix: str | None = None) -> Path:
+    effective_run_prefix = track_dir if run_prefix is None else run_prefix
     return (
         ROOT_DIR
-        / track
+        / track_dir
         / "runs"
-        / f"{track}_seed{seed}"
+        / f"{effective_run_prefix}_seed{seed}"
         / "final_model.pt"
     )
 
@@ -106,7 +107,11 @@ def record_frames_for_seed(
         device=device,
     )
     multiagent = MAPPOAgent.load(
-        checkpoint_path("simple_spread_multiagent", seed),
+        checkpoint_path(
+            "simple_spread_multiagent_MAPPO",
+            seed,
+            run_prefix="simple_spread_multiagent",
+        ),
         device=device,
     )
     baseline_frames, _ = record_policy_episode_frames(

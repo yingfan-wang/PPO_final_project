@@ -14,7 +14,7 @@ from simple_spread_baseline.utils import (
     summarize_episode_records,
     str2bool,
 )
-from simple_spread_multiagent.ma_ppo import MAPPOAgent
+from simple_spread_multiagent_MAPPO.ma_ppo import MAPPOAgent
 
 
 def parse_args():

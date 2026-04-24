@@ -3,7 +3,7 @@
 ## Final MAPPO Setup
 
 Source run config:
-- `simple_spread_multiagent/runs/simple_spread_multiagent_seed0/run_config.json`
+- `simple_spread_multiagent_MAPPO/runs/simple_spread_multiagent_seed0/run_config.json`
 
 Final fair comparison settings:
 - environment: `simple_spread`

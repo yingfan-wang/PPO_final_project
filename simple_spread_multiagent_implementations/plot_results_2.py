@@ -13,7 +13,7 @@ Works with:
 Usage:
     python plot_results.py
 Output:
-    results.pdf
+    results/reports/legacy/plot_results_2_output.pdf
 """
 
 from pathlib import Path
@@ -23,6 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +108,7 @@ RUNS = [
 ]
 
 SMOOTH_WINDOW = 5      # over eval checkpoints (not raw episodes)
-OUTPUT_PDF    = "results.pdf"
+OUTPUT_PDF    = ROOT_DIR / "results" / "reports" / "legacy" / "plot_results_2_output.pdf"
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +163,7 @@ def smooth(values, window):
 # ---------------------------------------------------------------------------
 
 def make_pdf(loaded: list[dict]):
+    OUTPUT_PDF.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(OUTPUT_PDF) as pdf:
 
         # ── Page 1: Mean reward over timesteps ─────────────────────────────

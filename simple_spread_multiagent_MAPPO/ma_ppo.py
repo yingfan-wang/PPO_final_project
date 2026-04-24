@@ -10,13 +10,13 @@ from torch import nn
 from simple_spread_baseline.config import ACTION_DIM, STATE_DIM
 from simple_spread_baseline.networks import build_mlp, orthogonal_init
 from simple_spread_baseline.utils import resolve_device
-from simple_spread_multiagent.config import MultiAgentConfig
-from simple_spread_multiagent.env import ACTOR_INPUT_DIM, build_actor_inputs, build_critic_inputs
-from simple_spread_multiagent.expert import (
+from simple_spread_multiagent_MAPPO.config import MultiAgentConfig
+from simple_spread_multiagent_MAPPO.env import ACTOR_INPUT_DIM, build_actor_inputs, build_critic_inputs
+from simple_spread_multiagent_MAPPO.expert import (
     ASSIGNMENT_ACTION_DIM,
     assignment_indices_to_env_actions,
 )
-from simple_spread_multiagent.networks import JointAssignmentActor
+from simple_spread_multiagent_MAPPO.networks import JointAssignmentActor
 
 
 def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> float:

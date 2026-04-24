@@ -6,7 +6,7 @@ import numpy as np
 
 from simple_spread_baseline.config import DEFAULT_CONTINUOUS_ACTIONS, N_AGENTS
 from simple_spread_baseline.env import SimpleSpreadEnv, SimpleSpreadVectorEnv
-from simple_spread_multiagent.env import build_actor_inputs
+from simple_spread_multiagent_MAPPO.env import build_actor_inputs
 
 LANDMARK_SLICE_START = 4
 LANDMARK_DIM = 2

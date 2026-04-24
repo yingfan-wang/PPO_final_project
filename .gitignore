@@ -8,6 +8,8 @@ mujoco/runs/
 simple_spread_baseline/runs/
 simple_spread_pure_mappo/runs/
 simple_spread_multiagent/runs/
+simple_spread_multiagent_MAPPO/runs/
+results/backups/
 
 # model files
 *.zip
@@ -24,11 +26,14 @@ events.out.tfevents.*
 # throwaway experiment artifacts
 results/test_*.png
 simple_spread_multiagent/sweep_results.csv
+simple_spread_multiagent_MAPPO/sweep_results.csv
 simple_spread_baseline/animations/**/*.gif
 simple_spread_baseline/animations/**/*.webp
 simple_spread_pure_mappo/animations/**/*.gif
 simple_spread_pure_mappo/animations/**/*.webp
 simple_spread_multiagent/animations/**/*.gif
 simple_spread_multiagent/animations/**/*.webp
+simple_spread_multiagent_MAPPO/animations/**/*.gif
+simple_spread_multiagent_MAPPO/animations/**/*.webp
 results/simple_spread_side_by_side_seed*.gif
 results/simple_spread_side_by_side_seed*.webp

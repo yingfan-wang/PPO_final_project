@@ -22,17 +22,17 @@ from simple_spread_baseline.utils import (
     summarize_episode_records,
     write_json,
 )
-from simple_spread_multiagent.config import MultiAgentConfig, RUN_PREFIX
-from simple_spread_multiagent.env import (
+from simple_spread_multiagent_MAPPO.config import MultiAgentConfig, RUN_PREFIX
+from simple_spread_multiagent_MAPPO.env import (
     SimpleSpreadVectorEnv,
     build_actor_inputs,
     build_critic_inputs,
 )
-from simple_spread_multiagent.expert import (
+from simple_spread_multiagent_MAPPO.expert import (
     assignment_target_indices_from_observations,
     collect_expert_dataset,
 )
-from simple_spread_multiagent.ma_ppo import MAPPOAgent
+from simple_spread_multiagent_MAPPO.ma_ppo import MAPPOAgent
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNS_DIR = BASE_DIR / "runs"

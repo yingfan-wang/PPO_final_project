@@ -1,4 +1,4 @@
-# Simple Spread Multi-Agent PPO
+# Simple Spread Multi-Agent MAPPO
 
 This folder contains the final coordinated Simple Spread method used for the
 project report.
@@ -74,7 +74,7 @@ Headline result:
 ## Recommended Training Command
 
 ```bash
-python simple_spread_multiagent/train_simple_spread.py \
+python simple_spread_multiagent_MAPPO/train_simple_spread.py \
   --seed 8501 \
   --timesteps 16000 \
   --eval_freq 4000 \

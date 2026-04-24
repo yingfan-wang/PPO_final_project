@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 from simple_spread_baseline.config import N_AGENTS
 from simple_spread_baseline.networks import build_backbone, orthogonal_init
-from simple_spread_multiagent.expert import ASSIGNMENTS
+from simple_spread_multiagent_MAPPO.expert import ASSIGNMENTS
 
 
 class JointAssignmentActor(nn.Module):

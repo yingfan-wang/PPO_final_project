@@ -16,7 +16,7 @@ from simple_spread_baseline.utils import (
     save_animation,
     str2bool,
 )
-from simple_spread_multiagent.ma_ppo import MAPPOAgent
+from simple_spread_multiagent_MAPPO.ma_ppo import MAPPOAgent
 
 
 def parse_args():

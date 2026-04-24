@@ -4,7 +4,7 @@ This note records the first direct comparison between:
 
 - `simple_spread_pure_mappo/`: decentralized primitive-action actor with a
   centralized critic and no low-level controller
-- `simple_spread_multiagent/`: structured assignment-based policy with a
+- `simple_spread_multiagent_MAPPO/`: structured assignment-based policy with a
   centralized critic and a fixed low-level controller
 
 ## Shared Training Budget

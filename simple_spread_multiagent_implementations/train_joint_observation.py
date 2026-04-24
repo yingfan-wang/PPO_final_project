@@ -7,35 +7,37 @@ from stable_baselines3.common.callbacks import EvalCallback
 import gymnasium as gym
 from gymnasium import spaces
 import shutil
-
+from shaped_reward import TIMESTEPS
+from shaped_reward import shape_reward
+from shaped_reward import HYPERPARAMS
 
 # ---------------------------------------------------------------------------
 # Reward shaping (same as multiagent version)
 # ---------------------------------------------------------------------------
 
-def shape_reward(agent_obs, base_reward):
-    landmark_positions = agent_obs[4:10]
-    distances = [
-        np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
-        for i in range(3)
-    ]
-    nearest_dist = min(distances)
+# def shape_reward(agent_obs, base_reward):
+#     landmark_positions = agent_obs[4:10]
+#     distances = [
+#         np.sqrt(landmark_positions[2*i]**2 + landmark_positions[2*i+1]**2)
+#         for i in range(3)
+#     ]
+#     nearest_dist = min(distances)
 
-    other_agent_obs = agent_obs[10:14]
-    collision_penalty = 0.0
-    for i in range(2):
-        dx = other_agent_obs[2*i]
-        dy = other_agent_obs[2*i + 1]
-        dist = np.sqrt(dx**2 + dy**2)
-        if dist < 0.5:
-            collision_penalty -= 0.3 * (0.5 - dist) / 0.5
+#     other_agent_obs = agent_obs[10:14]
+#     collision_penalty = 0.0
+#     for i in range(2):
+#         dx = other_agent_obs[2*i]
+#         dy = other_agent_obs[2*i + 1]
+#         dist = np.sqrt(dx**2 + dy**2)
+#         if dist < 0.5:
+#             collision_penalty -= 0.3 * (0.5 - dist) / 0.5
 
-    return (
-        base_reward
-        + 3.0 * np.exp(-10.0 * nearest_dist)
-        - 0.5 * nearest_dist
-        + collision_penalty
-    )
+#     return (
+#         base_reward
+#         + 3.0 * np.exp(-10.0 * nearest_dist)
+#         - 0.5 * nearest_dist
+#         + collision_penalty
+#     )
 
 
 # ---------------------------------------------------------------------------
@@ -186,21 +188,35 @@ def train_agents(total_timesteps=1_000_000, n_rounds=3):
             )
 
             if models[agent_id] is None:
+                # model = PPO(
+                #     policy="MlpPolicy",
+                #     env=train_env,
+                #     learning_rate=3e-4,
+                #     n_steps=512,
+                #     batch_size=256,
+                #     n_epochs=10,
+                #     gamma=0.99,
+                #     gae_lambda=0.95,
+                #     clip_range=0.2,
+                #     ent_coef=0.01,
+                #     vf_coef=0.5,
+                #     max_grad_norm=0.5,
+                #     verbose=1,
+                #     tensorboard_log=str(run_dir / "tb" / agent_id),
+                # )
                 model = PPO(
                     policy="MlpPolicy",
                     env=train_env,
-                    learning_rate=3e-4,
-                    n_steps=512,
-                    batch_size=256,
-                    n_epochs=10,
-                    gamma=0.99,
-                    gae_lambda=0.95,
-                    clip_range=0.2,
-                    ent_coef=0.01,
-                    vf_coef=0.5,
-                    max_grad_norm=0.5,
-                    verbose=1,
-                    tensorboard_log=str(run_dir / "tb" / agent_id),
+                    learning_rate=HYPERPARAMS["learning_rate"],
+                    n_steps=HYPERPARAMS["n_steps"],
+                    batch_size=HYPERPARAMS["batch_size"],
+                    n_epochs=HYPERPARAMS["n_epochs"],
+                    gamma=HYPERPARAMS["gamma"],
+                    gae_lambda=HYPERPARAMS["gae_lambda"],
+                    clip_range=HYPERPARAMS["clip_range"],
+                    ent_coef=HYPERPARAMS["ent_coef"],
+                    vf_coef=HYPERPARAMS["vf_coef"],
+                    max_grad_norm=HYPERPARAMS["max_grad_norm"],
                 )
             else:
                 model = models[agent_id]
@@ -225,4 +241,5 @@ def train_agents(total_timesteps=1_000_000, n_rounds=3):
 
 
 if __name__ == "__main__":
-    train_agents(total_timesteps=1_000_000, n_rounds=3)
+    # train_agents(total_timesteps=1_000_000, n_rounds=3)
+    train_agents(total_timesteps=TIMESTEPS, n_rounds=3)

@@ -2,7 +2,8 @@ from pathlib import Path
 import numpy as np
 from pettingzoo.mpe import simple_spread_v3
 from stable_baselines3 import PPO
-from train_simple_spread_multiagent import SpreadShapingWrapper
+# from train_simple_spread_multiagent import SpreadShapingWrapper
+from train_round_robin import SpreadShapingWrapper
 
 run_dir = Path("runs") / "multiagent_spread"
 agent_ids = [f"agent_{i}" for i in range(3)]

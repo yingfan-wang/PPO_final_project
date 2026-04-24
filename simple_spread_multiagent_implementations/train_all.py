@@ -9,32 +9,39 @@ import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime
+from shaped_reward import TIMESTEPS
 
 # Configuration
 IMPLEMENTATIONS = [
     {
         "name": "Parameter Sharing",
-        "script": "train_simple_spread.py",
+        "script": "simple_spread_multiagent_implementations/train_simple_spread.py",
         "description": "Single shared policy for all 3 agents"
     },
     {
         "name": "Round-Robin Multi-Agent",
-        "script": "train_simple_spread_multiagent.py",
+        "script": "simple_spread_multiagent_implementations/train_simple_spread_multiagent.py",
         "description": "3 separate policies, trained round-robin"
     },
     {
+        "name": "IPPO",
+        "script": "simple_spread_multiagent_implementations/train_shared_pol_param.py",
+        "description": "Independent training with freezing other agents"
+    },
+    {
         "name": "Joint Observation",
-        "script": "train_joint_observation.py",
+        "script": "simple_spread_multiagent_implementations/train_joint_observation.py",
         "description": "Coordinated multi-agent with joint observations"
     },
     {
         "name": "MAPPO",
-        "script": "train_mappo.py",
+        "script": "simple_spread_multiagent_implementations/train_mappo.py",
         "description": "Multi-Agent PPO with centralized critic"
     }
 ]
 
-TOTAL_TIMESTEPS = 1_000_000  # Adjust as needed
+# TOTAL_TIMESTEPS = 1_500_000  # Adjust as needed
+TOTAL_TIMESTEPS = TIMESTEPS
 
 
 def run_training(script_name, impl_name):

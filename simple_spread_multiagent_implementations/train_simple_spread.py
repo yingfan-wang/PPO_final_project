@@ -8,7 +8,8 @@ from stable_baselines3.common.vec_env import VecMonitor
 from pettingzoo.utils import ParallelEnv
 import numpy as np
 from shaped_reward import shape_reward
-
+from shaped_reward import TIMESTEPS
+from shaped_reward import HYPERPARAMS
 
 # Shared pol param (naive)
 
@@ -106,21 +107,35 @@ def main():
     train_env = make_env()
     eval_env  = make_env()
 
+    # model = PPO(
+    #     policy="MlpPolicy",
+    #     env=train_env,
+    #     learning_rate=3e-4,
+    #     n_steps=256,
+    #     batch_size=256,
+    #     n_epochs=10,
+    #     gamma=0.99,
+    #     gae_lambda=0.95,
+    #     clip_range=0.2,
+    #     ent_coef=0.001,
+    #     vf_coef=0.5,
+    #     max_grad_norm=0.5,
+    #     verbose=1,
+    #     tensorboard_log=str(run_dir / "tb"),
+    # )
     model = PPO(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=3e-4,
-        n_steps=256,
-        batch_size=256,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.001,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        verbose=1,
-        tensorboard_log=str(run_dir / "tb"),
+        learning_rate=HYPERPARAMS["learning_rate"],
+        n_steps=HYPERPARAMS["n_steps"],
+        batch_size=HYPERPARAMS["batch_size"],
+        n_epochs=HYPERPARAMS["n_epochs"],
+        gamma=HYPERPARAMS["gamma"],
+        gae_lambda=HYPERPARAMS["gae_lambda"],
+        clip_range=HYPERPARAMS["clip_range"],
+        ent_coef=HYPERPARAMS["ent_coef"],
+        vf_coef=HYPERPARAMS["vf_coef"],
+        max_grad_norm=HYPERPARAMS["max_grad_norm"],
     )
 
     eval_callback = EvalCallback(
@@ -134,7 +149,8 @@ def main():
     )
 
     # model.learn(total_timesteps=1_000_000, callback=eval_callback)
-    model.learn(total_timesteps=500_000, callback=eval_callback)
+    # model.learn(total_timesteps=500_000, callback=eval_callback)
+    model.learn(total_timesteps=TIMESTEPS, callback=eval_callback)
     model.save(str(run_dir / "final_model"))
 
     train_env.close()

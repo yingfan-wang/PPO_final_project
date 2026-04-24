@@ -9,7 +9,12 @@ from pettingzoo.utils import ParallelEnv
 import gymnasium as gym
 from gymnasium import spaces
 from shaped_reward import shape_reward
+from shaped_reward import TIMESTEPS
+from stable_baselines3.common.callbacks import EvalCallback
+from shaped_reward import HYPERPARAMS
 
+
+# round robin
 
 class SpreadShapingWrapper(ParallelEnv):
     metadata = {}
@@ -211,8 +216,10 @@ def make_single_agent_vecenv(agent_id, other_models):
     return vec
 
 
-def train_agents(total_timesteps=500_000, n_rounds=3):
-    run_dir = Path("runs") / "multiagent_spread"
+# def train_agents(total_timesteps=500_000, n_rounds=3):
+def train_agents(total_timesteps=TIMESTEPS, n_rounds=3):
+    # run_dir = Path("runs") / "multiagent_spread"
+    run_dir = Path("runs") / "round_robin"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     agent_ids = [f"agent_{i}" for i in range(3)]
@@ -232,23 +239,53 @@ def train_agents(total_timesteps=500_000, n_rounds=3):
             }
 
             train_env = make_single_agent_vecenv(agent_id, other_models)
+            eval_env  = make_single_agent_vecenv(agent_id, other_models)
+
+            eval_log_dir   = run_dir / agent_id / "eval_logs"        
+            best_model_dir = run_dir / agent_id / "best_model"      
+            eval_log_dir.mkdir(parents=True, exist_ok=True)               
+            best_model_dir.mkdir(parents=True, exist_ok=True)         
+
+            eval_callback = EvalCallback(
+                    eval_env,
+                best_model_save_path=str(best_model_dir),
+                log_path=str(eval_log_dir),
+                eval_freq=5_000,
+                n_eval_episodes=10,
+                deterministic=True,
+                render=False,
+            )
 
             if models[agent_id] is None:
+                # model = PPO(
+                #     policy="MlpPolicy",
+                #     env=train_env,
+                #     learning_rate=3e-4,
+                #     n_steps=512,
+                #     batch_size=256,
+                #     n_epochs=10,
+                #     gamma=0.99,
+                #     gae_lambda=0.95,
+                #     clip_range=0.2,
+                #     ent_coef=0.01,
+                #     vf_coef=0.5,
+                #     max_grad_norm=0.5,
+                #     verbose=1,
+                #     tensorboard_log=str(run_dir / "tb" / agent_id),
+                # )
                 model = PPO(
                     policy="MlpPolicy",
                     env=train_env,
-                    learning_rate=3e-4,
-                    n_steps=512,
-                    batch_size=256,
-                    n_epochs=10,
-                    gamma=0.99,
-                    gae_lambda=0.95,
-                    clip_range=0.2,
-                    ent_coef=0.01,
-                    vf_coef=0.5,
-                    max_grad_norm=0.5,
-                    verbose=1,
-                    tensorboard_log=str(run_dir / "tb" / agent_id),
+                    learning_rate=HYPERPARAMS["learning_rate"],
+                    n_steps=HYPERPARAMS["n_steps"],
+                    batch_size=HYPERPARAMS["batch_size"],
+                    n_epochs=HYPERPARAMS["n_epochs"],
+                    gamma=HYPERPARAMS["gamma"],
+                    gae_lambda=HYPERPARAMS["gae_lambda"],
+                    clip_range=HYPERPARAMS["clip_range"],
+                    ent_coef=HYPERPARAMS["ent_coef"],
+                    vf_coef=HYPERPARAMS["vf_coef"],
+                    max_grad_norm=HYPERPARAMS["max_grad_norm"],
                 )
             else:
                 model = models[agent_id]
@@ -257,12 +294,14 @@ def train_agents(total_timesteps=500_000, n_rounds=3):
             model.learn(
                 total_timesteps=total_timesteps // (n_rounds * len(agent_ids)),
                 reset_num_timesteps=(round_idx == 0),
+                callback=eval_callback,
             )
 
             save_path = str(run_dir / f"{agent_id}_round{round_idx}")
             model.save(save_path)
             models[agent_id] = model
             train_env.close()
+            eval_env.close()
 
     for agent_id, model in models.items():
         model.save(str(run_dir / f"{agent_id}_final"))
@@ -272,4 +311,5 @@ def train_agents(total_timesteps=500_000, n_rounds=3):
 
 
 if __name__ == "__main__":
-    train_agents(total_timesteps=500_000, n_rounds=3)
+    # train_agents(total_timesteps=500_000, n_rounds=3)
+    train_agents(total_timesteps=TIMESTEPS, n_rounds=3)

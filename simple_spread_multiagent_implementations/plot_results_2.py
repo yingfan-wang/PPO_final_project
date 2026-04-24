@@ -69,11 +69,52 @@ from matplotlib.backends.backend_pdf import PdfPages
 # instead of plotting agent_0, agent_1, agent_2 separately
 # average them into one "IPPO" line and one "Joint" line
 
+# RUNS = [
+#     {
+#         "label": "Shared Policy",
+#         "color": "#2196F3",
+#         "npz_list": ["runs/simple_spread/eval_logs/evaluations.npz"],
+#     },
+#     {
+#         "label": "IPPO",
+#         "color": "#F44336",
+#         "npz_list": [
+#             "runs/multiagent_spread/agent_0/eval_logs/evaluations.npz",
+#             "runs/multiagent_spread/agent_1/eval_logs/evaluations.npz",
+#             "runs/multiagent_spread/agent_2/eval_logs/evaluations.npz",
+#         ],
+#     },
+#     {
+#         "label": "Joint Obs",
+#         "color": "#9C27B0",
+#         "npz_list": [
+#             "runs/joint_obs_spread/agent_0/eval_logs/evaluations.npz",
+#             "runs/joint_obs_spread/agent_1/eval_logs/evaluations.npz",
+#             "runs/joint_obs_spread/agent_2/eval_logs/evaluations.npz",
+#         ],
+#     },
+#     {
+#         "label": "MAPPO",
+#         "color": "#00BCD4",
+#         "npz_list": ["runs/mappo_spread/eval_logs/evaluations.npz"],
+#     },
+# ]
 RUNS = [
     {
-        "label": "Shared Policy",
+        "label": "Parameter Sharing",
         "color": "#2196F3",
-        "npz_list": ["runs/simple_spread/eval_logs/evaluations.npz"],
+        "npz_list": [
+            "runs/simple_spread/eval_logs/evaluations.npz",
+        ],
+    },
+    {
+        "label": "Round-Robin",
+        "color": "#4CAF50",
+        "npz_list": [
+            "runs/round_robin/agent_0/eval_logs/evaluations.npz",
+            "runs/round_robin/agent_1/eval_logs/evaluations.npz",
+            "runs/round_robin/agent_2/eval_logs/evaluations.npz",
+        ],
     },
     {
         "label": "IPPO",
@@ -85,7 +126,7 @@ RUNS = [
         ],
     },
     {
-        "label": "Joint Obs",
+        "label": "Joint Observation",
         "color": "#9C27B0",
         "npz_list": [
             "runs/joint_obs_spread/agent_0/eval_logs/evaluations.npz",
@@ -96,7 +137,23 @@ RUNS = [
     {
         "label": "MAPPO",
         "color": "#00BCD4",
-        "npz_list": ["runs/mappo_spread/eval_logs/evaluations.npz"],
+        "npz_list": [
+            "runs/mappo_spread/eval_logs/evaluations.npz",
+        ],
+    },
+    # {
+    #     "label": "MAPPO (True)",
+    #     "color": "#00BCD4",
+    #     "npz_list": [
+    #         "runs/mappo_TRUE_baseline/eval_logs/evaluations.npz",
+    #     ],
+    # }
+    {
+        "label": "Advanced MAPPO",
+        "color": "#00BCD4",
+        "npz_list": [
+            "runs/mappo_controller_seed012_evaluations.npz",
+        ],
     },
 ]
 

@@ -8,7 +8,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from simple_spread_baseline.ppo import PPOAgent
 from simple_spread_baseline.utils import (
     ensure_parent,
     record_policy_episode_frames,
@@ -17,6 +16,7 @@ from simple_spread_baseline.utils import (
     save_animation,
     str2bool,
 )
+from simple_spread_pure_mappo.ppo import PureMAPPOAgent
 
 
 def parse_args():
@@ -41,7 +41,7 @@ def parse_args():
 def main() -> None:
     args = parse_args()
     model_path = resolve_checkpoint_path(args.model_path)
-    agent = PPOAgent.load(model_path, device=args.device)
+    agent = PureMAPPOAgent.load(model_path, device=args.device)
     continuous_actions = (
         agent.config.continuous_actions
         if args.continuous_actions is None

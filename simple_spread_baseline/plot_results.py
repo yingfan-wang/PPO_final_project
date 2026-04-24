@@ -8,14 +8,17 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 MPLCONFIG_DIR = SCRIPT_DIR / ".mplconfig"
 MPLCONFIG_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(MPLCONFIG_DIR))
+os.environ.setdefault("MPLBACKEND", "Agg")
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 ROOT_DIR = SCRIPT_DIR.parent
 DEFAULT_RUNS_DIR = SCRIPT_DIR / "runs"
-DEFAULT_RESULTS_DIR = ROOT_DIR / "results"
+DEFAULT_RESULTS_DIR = ROOT_DIR / "results" / "simple_spread" / "curves"
 
 
 def load_evals(npz_path: Path) -> pd.DataFrame:

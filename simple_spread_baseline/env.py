@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import importlib
+import os
 from typing import Any
 
 import numpy as np
+
+try:
+    agent_selector_module = importlib.import_module("pettingzoo.utils.agent_selector")
+    if not hasattr(agent_selector_module, "AgentSelector") and hasattr(
+        agent_selector_module, "agent_selector"
+    ):
+        agent_selector_module.AgentSelector = agent_selector_module.agent_selector
+except ModuleNotFoundError:
+    pass
+
 from mpe2 import simple_spread_v3
 
 from simple_spread_baseline.config import (
@@ -85,6 +97,8 @@ class SimpleSpreadEnv:
         self.terminate_on_success = terminate_on_success
         self.curriculum = curriculum
         self.render_mode = render_mode
+        if render_mode != "human":
+            os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         self.raw_env = simple_spread_v3.parallel_env(
             N=N_AGENTS,
             local_ratio=local_ratio,

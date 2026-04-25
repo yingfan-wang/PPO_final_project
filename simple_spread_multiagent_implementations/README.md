@@ -72,8 +72,8 @@ HYPERPARAMS = {
 Script → Purpose
 
 ```train_all.py``` → runs all training pipelines  
-```plot_results.py``` → compares training curves  
-```plot_results_2.py``` → evaluates final models  
+```plot_results_2.py``` → compares training curves  
+```plot_testing_results.py``` → evaluates final models  
 ```generate_gifs.py``` → creates animations  
 ```shaped_reward.py``` → reward + hyperparameters  
 
@@ -121,14 +121,14 @@ Train all models:
 python train_all.py
 ```
 
-Plot results:
+Plot training results:
 ```
-python plot_results.py
+python plot_results_2.py
 ```
 
 Evaluate models:
 ```
-python test_and_plot.py
+python plot_testing_results.py
 ```
 
 Generate GIFs:

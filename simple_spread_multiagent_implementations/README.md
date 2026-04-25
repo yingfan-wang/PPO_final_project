@@ -4,15 +4,6 @@ This project implements and compares five different multi-agent reinforcement le
 
 ---
 
-## Results Summary
-
-- Parameter Sharing and Advanced MAPPO demonstrate the strongest cooperative behavior.
-- Advanced MAPPO achieves the highest overall mean reward (59.12) with strong stability.
-- IPPO and Joint Observation perform reasonably but are less consistent.
-- Round-Robin training performs worst overall, suggesting sequential freezing is less effective for this task.
-
----
-
 ## Implementations
 
 | Implementation | Script | Key Features |
@@ -37,6 +28,9 @@ def shape_reward(agent_obs, base_reward):
            0.5 * nearest_dist + 
            collision_penalty
 ```
+
+Uncomment the comment in shaped_reward.py for default rewards
+
 ---
 
 ### Components
@@ -79,15 +73,16 @@ Script → Purpose
 
 ```train_all.py``` → runs all training pipelines  
 ```plot_results.py``` → compares training curves  
-```test_and_plot.py``` → evaluates final models  
+```plot_results_2.py``` → evaluates final models  
 ```generate_gifs.py``` → creates animations  
 ```shaped_reward.py``` → reward + hyperparameters  
 
 Visualization:
-watch_shared.py  
-watch_multiagent.py  
-watch_joint.py  
-watch_mappo.py  
+```watch_ippo.py```
+```watch_joint_observation.py```
+```watch_round_robin.py```
+```watch_simple_spread.py```
+```watch_mappo.py```
 
 ---
 
